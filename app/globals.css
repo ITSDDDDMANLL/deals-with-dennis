@@ -1607,6 +1607,40 @@ h3 {
   font-weight: 800;
 }
 
+.thumbnail-uploader {
+  display: grid;
+  gap: 10px;
+}
+
+.thumbnail-uploader > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.thumbnail-uploader img,
+.thumbnail-empty {
+  width: min(100%, 360px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  aspect-ratio: 16 / 9;
+  background: #fff8e9;
+}
+
+.thumbnail-uploader img {
+  display: block;
+  object-fit: cover;
+}
+
+.thumbnail-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 900;
+}
+
 .editor-head {
   display: flex;
   justify-content: space-between;

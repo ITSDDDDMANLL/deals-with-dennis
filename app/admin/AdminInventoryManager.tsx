@@ -14,6 +14,7 @@ const videoStorageKey = "deals-with-dennis-admin-videos";
 const maxVehicleImages = 20;
 const maxImageSizeBytes = 2_500_000;
 const maxVideoSizeBytes = 250_000_000;
+const maxThumbnailSizeBytes = 2_500_000;
 
 const blankVehicle: EditableVehicle = {
   id: "draft-new-vehicle",
@@ -297,6 +298,69 @@ export function AdminInventoryManager({
       );
       setVideoUploadStatus("Upload complete. Click Save Videos to publish.");
     }
+  }
+
+  async function uploadVideoThumbnail(
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!isAllowedImageFile(file) || file.size > maxThumbnailSizeBytes) {
+      setNotice("Thumbnail must be an image file and 2.5 MB or smaller.");
+      return;
+    }
+
+    setVideoUploadStatus(`Uploading thumbnail ${file.name}...`);
+
+    const formData = new FormData();
+    formData.append("vehicleId", `video-${id}`);
+    formData.append("images", file);
+
+    const response = await fetch("/api/admin/images", {
+      body: formData,
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Thumbnail upload failed.");
+      setVideoUploadStatus("");
+      return;
+    }
+
+    const result = (await response.json()) as {
+      imageUrls?: string[];
+      mode?: string;
+    };
+    const thumbnailUrl = result.imageUrls?.[0] ?? "";
+
+    if (!thumbnailUrl) {
+      setNotice("Thumbnail upload did not return an image URL.");
+      setVideoUploadStatus("");
+      return;
+    }
+
+    updateVideo(id, { thumbnailUrl });
+    window.localStorage.setItem(
+      videoStorageKey,
+      JSON.stringify(
+        videos.map((video) =>
+          video.id === id ? { ...video, thumbnailUrl } : video,
+        ),
+      ),
+    );
+    setNotice(
+      `Thumbnail uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
+    );
+    setVideoUploadStatus("Thumbnail uploaded. Click Save Videos to publish.");
   }
 
   async function uploadVehicleImages(
@@ -1076,19 +1140,40 @@ export function AdminInventoryManager({
                     type="text"
                   />
                 </label>
-                <label className="editor-wide">
-                  <span>Thumbnail URL</span>
-                  <input
-                    value={selectedVideo.thumbnailUrl ?? ""}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, {
-                        thumbnailUrl: event.target.value,
-                      })
-                    }
-                    placeholder="Optional poster image URL"
-                    type="url"
-                  />
-                </label>
+                <div className="editor-wide thumbnail-uploader">
+                  <span>Thumbnail image</span>
+                  {selectedVideo.thumbnailUrl ? (
+                    <img
+                      alt={`${selectedVideo.title || "Video"} thumbnail`}
+                      src={selectedVideo.thumbnailUrl}
+                    />
+                  ) : (
+                    <div className="thumbnail-empty">No thumbnail uploaded</div>
+                  )}
+                  <div className="admin-actions">
+                    <label className="button secondary file-button">
+                      Upload Thumbnail
+                      <input
+                        accept="image/*"
+                        onChange={(event) =>
+                          uploadVideoThumbnail(selectedVideo.id, event)
+                        }
+                        type="file"
+                      />
+                    </label>
+                    {selectedVideo.thumbnailUrl ? (
+                      <button
+                        className="button ghost"
+                        onClick={() =>
+                          updateVideo(selectedVideo.id, { thumbnailUrl: "" })
+                        }
+                        type="button"
+                      >
+                        Remove Thumbnail
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                 <label>
                   <span>Sort order</span>
                   <input
@@ -1327,4 +1412,8 @@ function isAllowedVideoFile(file: File) {
     lowerName.endsWith(".m4v") ||
     lowerName.endsWith(".webm")
   );
+}
+
+function isAllowedImageFile(file: File) {
+  return file.type.startsWith("image/");
 }
