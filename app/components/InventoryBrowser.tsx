@@ -344,27 +344,14 @@ export function InventoryBrowser({
               </div>
               <div className="vehicle-body">
                 <div className="vehicle-summary">
-                  <div className="vehicle-topline">
-                    <span className={`status ${vehicle.status}`}>
-                      {vehicle.status}
-                    </span>
-                    <span className="type-label">{vehicle.type}</span>
-                    {vehicle.stockNumber ? (
-                      <span className="stock-label">
-                        Stock {vehicle.stockNumber}
-                      </span>
-                    ) : null}
-                    {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
-                      <span className="claim-label">
-                        {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}
-                      </span>
-                    ) : null}
-                  </div>
                   <h3>
                     {vehicle.year} {vehicle.make} {vehicle.model}
                   </h3>
                   <p>{vehicle.trim || "Trim details coming soon"}</p>
-                  <strong>{vehicle.priceLabel}</strong>
+                  <div className="vehicle-price-row">
+                    <strong>{vehicle.priceLabel}</strong>
+                    <VehicleCardTags vehicle={vehicle} />
+                  </div>
                 </div>
                 <dl className="vehicle-specs">
                   <div>
@@ -474,19 +461,31 @@ function VehicleDetailModal({
         <div className="vehicle-modal-content">
           <div className="vehicle-modal-title">
             <div>
-              <div className="vehicle-topline">
-                <span className={`status ${vehicle.status}`}>{vehicle.status}</span>
-                <span className="type-label">{vehicle.type}</span>
-                {vehicle.stockNumber ? (
-                  <span className="stock-label">Stock {vehicle.stockNumber}</span>
-                ) : null}
-              </div>
               <h2>
                 {vehicle.year} {vehicle.make} {vehicle.model}
               </h2>
               <p>{vehicle.trim || "Trim details coming soon"}</p>
             </div>
-            <strong>{vehicle.priceLabel}</strong>
+            <div className="vehicle-modal-price">
+              <div className="vehicle-price-row">
+                <strong>{vehicle.priceLabel}</strong>
+                <VehicleCardTags vehicle={vehicle} />
+              </div>
+              <p className="vehicle-price-note">
+                Dealer #: 10904
+                <br />
+                Price does not include $699 documentation fee, $789 prep fee,
+                any added accessories, or applicable taxes. Contact Dennis for
+                details.
+              </p>
+              <button
+                className="button primary"
+                onClick={() => contactDennis(vehicle, onClose)}
+                type="button"
+              >
+                Contact Dennis
+              </button>
+            </div>
           </div>
 
           {highlights.length ? (
@@ -510,6 +509,12 @@ function VehicleDetailModal({
           </section>
 
           <dl className="vehicle-modal-specs">
+            {vehicle.stockNumber ? (
+              <div>
+                <dt>Stock #</dt>
+                <dd>{vehicle.stockNumber}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Mileage</dt>
               <dd>{vehicle.mileageLabel}</dd>
@@ -545,6 +550,56 @@ function VehicleDetailModal({
       </div>
     </div>
   );
+}
+
+function VehicleCardTags({ vehicle }: { vehicle: Vehicle }) {
+  return (
+    <span className="vehicle-inline-tags">
+      <span className="type-label">{vehicle.type}</span>
+      {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
+        <span className="claim-label">
+          {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function contactDennis(vehicle: Vehicle, onClose: () => void) {
+  const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
+  const lines = [
+    `I am interested in the ${vehicleName}${vehicle.trim ? ` ${vehicle.trim}` : ""}.`,
+    vehicle.stockNumber ? `Stock #: ${vehicle.stockNumber}` : "",
+    vehicle.vin ? `VIN: ${vehicle.vin}` : "",
+    `Price: ${vehicle.priceLabel}`,
+  ].filter(Boolean);
+
+  window.dispatchEvent(
+    new CustomEvent("deals-contact-vehicle", {
+      detail: {
+        message: lines.join("\n"),
+        vehicleType: vehicle.type,
+      },
+    }),
+  );
+  window.sessionStorage.setItem(
+    "deals-contact-prefill",
+    JSON.stringify({
+      message: lines.join("\n"),
+      vehicleType: vehicle.type,
+    }),
+  );
+  onClose();
+  window.setTimeout(() => {
+    const contactSection = document.getElementById("contact");
+
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    window.location.href = "/#contact";
+  }, 50);
 }
 
 function FilterSelect({

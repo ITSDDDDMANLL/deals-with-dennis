@@ -1,11 +1,47 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type SubmitState = "idle" | "sending" | "sent" | "error";
 
 export function ContactForm() {
   const [state, setState] = useState<SubmitState>("idle");
+  const [vehicleType, setVehicleType] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const savedPrefill = window.sessionStorage.getItem("deals-contact-prefill");
+
+    if (savedPrefill) {
+      try {
+        const parsed = JSON.parse(savedPrefill) as {
+          message?: string;
+          vehicleType?: string;
+        };
+        setVehicleType(parsed.vehicleType ?? "");
+        setMessage(parsed.message ?? "");
+        window.sessionStorage.removeItem("deals-contact-prefill");
+      } catch {
+        window.sessionStorage.removeItem("deals-contact-prefill");
+      }
+    }
+
+    function handleVehicleContact(event: Event) {
+      const detail = (event as CustomEvent<{
+        message?: string;
+        vehicleType?: string;
+      }>).detail;
+
+      setVehicleType(detail?.vehicleType ?? "");
+      setMessage(detail?.message ?? "");
+    }
+
+    window.addEventListener("deals-contact-vehicle", handleVehicleContact);
+
+    return () => {
+      window.removeEventListener("deals-contact-vehicle", handleVehicleContact);
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,6 +58,8 @@ export function ContactForm() {
 
     if (response.ok) {
       form.reset();
+      setVehicleType("");
+      setMessage("");
       setState("sent");
       return;
     }
@@ -41,7 +79,11 @@ export function ContactForm() {
       </label>
       <label>
         <span>Vehicle interest</span>
-        <select name="vehicleType">
+        <select
+          name="vehicleType"
+          onChange={(event) => setVehicleType(event.target.value)}
+          value={vehicleType}
+        >
           <option value="">Not sure yet</option>
           <option value="new">New vehicle</option>
           <option value="used">Used vehicle</option>
@@ -51,6 +93,8 @@ export function ContactForm() {
       <label>
         <span>Message</span>
         <textarea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
           name="message"
           placeholder="Budget, preferred model, trade-in details, or a good time to call"
           rows={5}
