@@ -17,10 +17,8 @@ type SelectFilterKey =
   | "year"
   | "make"
   | "model"
-  | "trim"
   | "bodyStyle"
   | "condition"
-  | "location"
   | "colour"
   | "drivetrain"
   | "fuel"
@@ -55,11 +53,9 @@ export function InventoryBrowser({
     condition: "all",
     drivetrain: "all",
     fuel: "all",
-    location: "all",
     make: "all",
     model: "all",
     transmission: "all",
-    trim: "all",
     year: "all",
   });
 
@@ -69,12 +65,10 @@ export function InventoryBrowser({
       colour: uniqueValues(vehicles.map((vehicle) => vehicle.exteriorColor)),
       drivetrain: uniqueValues(vehicles.map((vehicle) => vehicle.drivetrain)),
       fuel: uniqueValues(vehicles.map(inferFuel)),
-      location: ["Richmond"],
       make: uniqueValues(vehicles.map((vehicle) => vehicle.make)),
       model: uniqueValues(vehicles.map((vehicle) => vehicle.model)),
       transmission: uniqueValues(vehicles.map(inferTransmission)),
-      trim: uniqueValues(vehicles.map((vehicle) => vehicle.trim)),
-      year: uniqueValues(vehicles.map((vehicle) => String(vehicle.year))),
+      year: uniqueYearValues(vehicles.map((vehicle) => vehicle.year)),
     }),
     [vehicles],
   );
@@ -94,9 +88,7 @@ export function InventoryBrowser({
         matchesSelect(selectFilters.year, String(vehicle.year)) &&
         matchesSelect(selectFilters.make, vehicle.make) &&
         matchesSelect(selectFilters.model, vehicle.model) &&
-        matchesSelect(selectFilters.trim, vehicle.trim) &&
         matchesSelect(selectFilters.bodyStyle, vehicle.className) &&
-        matchesSelect(selectFilters.location, "Richmond") &&
         matchesSelect(selectFilters.colour, vehicle.exteriorColor) &&
         matchesSelect(selectFilters.drivetrain, vehicle.drivetrain) &&
         matchesSelect(selectFilters.fuel, inferFuel(vehicle)) &&
@@ -147,11 +139,9 @@ export function InventoryBrowser({
       condition: "all",
       drivetrain: "all",
       fuel: "all",
-      location: "all",
       make: "all",
       model: "all",
       transmission: "all",
-      trim: "all",
       year: "all",
     });
   }
@@ -178,12 +168,6 @@ export function InventoryBrowser({
               value={selectFilters.model}
               options={filterOptions.model}
               onChange={(value) => updateSelectFilter("model", value)}
-            />
-            <FilterSelect
-              label="Trim"
-              value={selectFilters.trim}
-              options={filterOptions.trim}
-              onChange={(value) => updateSelectFilter("trim", value)}
             />
             <FilterSelect
               label="Body Style"
@@ -213,12 +197,6 @@ export function InventoryBrowser({
               options={["New", "Used"]}
               onChange={(value) => updateSelectFilter("condition", value)}
               values={["new", "used"]}
-            />
-            <FilterSelect
-              label="Location"
-              value={selectFilters.location}
-              options={filterOptions.location}
-              onChange={(value) => updateSelectFilter("location", value)}
             />
             <FilterSelect
               label="Colour"
@@ -372,6 +350,18 @@ export function InventoryBrowser({
                     <dt>Color</dt>
                     <dd>{vehicle.exteriorColor}</dd>
                   </div>
+                  <div>
+                    <dt>Drivetrain</dt>
+                    <dd>{vehicle.drivetrain || "TBD"}</dd>
+                  </div>
+                  <div>
+                    <dt>Transmission</dt>
+                    <dd>{inferTransmission(vehicle) || "TBD"}</dd>
+                  </div>
+                  <div>
+                    <dt>Fuel</dt>
+                    <dd>{inferFuel(vehicle) || "TBD"}</dd>
+                  </div>
                   {vehicle.vin ? (
                     <div className="wide-spec">
                       <dt>VIN</dt>
@@ -431,6 +421,12 @@ function uniqueValues(values: Array<string | number | null | undefined>) {
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
+function uniqueYearValues(values: Array<number | null | undefined>) {
+  return [...new Set(values.filter((value): value is number => Number.isFinite(value)))]
+    .sort((a, b) => b - a)
+    .map(String);
+}
+
 function matchesSelect(filterValue: string, vehicleValue?: string) {
   return filterValue === "all" || filterValue === String(vehicleValue ?? "").trim();
 }
@@ -488,6 +484,9 @@ function searchVehicle(vehicle: Vehicle, search: string) {
     vehicle.stockNumber,
     vehicle.vin,
     vehicle.className,
+    vehicle.drivetrain,
+    inferTransmission(vehicle),
+    inferFuel(vehicle),
     vehicle.exteriorColor,
     vehicle.priceLabel,
     vehicle.mileageLabel,
@@ -508,9 +507,15 @@ function inferFuel(vehicle: Vehicle) {
     return "Hybrid";
   }
 
-  return "";
+  return "Gasoline";
 }
 
-function inferTransmission(_vehicle: Vehicle) {
-  return "";
+function inferTransmission(vehicle: Vehicle) {
+  const haystack = `${vehicle.make} ${vehicle.model} ${vehicle.trim}`.toLowerCase();
+
+  if (haystack.includes("manual") || haystack.includes("6-speed")) {
+    return "Manual";
+  }
+
+  return "Automatic";
 }
