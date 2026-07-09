@@ -1494,6 +1494,87 @@ h3 {
   font-weight: 800;
 }
 
+.deleted-vehicles-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(179, 57, 27, 0.28);
+  border-radius: 8px;
+  background: #fff5ed;
+  padding: 12px;
+}
+
+.deleted-vehicles-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.deleted-vehicles-head span {
+  color: var(--rust);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.deleted-vehicles-head button,
+.deleted-vehicle-row button {
+  border: 1px solid rgba(179, 57, 27, 0.32);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: var(--rust);
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.deleted-vehicles-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.deleted-vehicles-list {
+  display: grid;
+  gap: 8px;
+}
+
+.deleted-vehicle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-radius: 6px;
+  background: rgba(255, 253, 248, 0.84);
+  padding: 10px;
+}
+
+.deleted-vehicle-row div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.deleted-vehicle-row strong,
+.deleted-vehicle-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deleted-vehicle-row strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.deleted-vehicle-row small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .admin-editor {
   display: grid;
   gap: 20px;

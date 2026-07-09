@@ -98,6 +98,7 @@ export function AdminInventoryManager({
   const [adminFeaturedFilter, setAdminFeaturedFilter] = useState("all");
   const [adminYearFilter, setAdminYearFilter] = useState("all");
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
+  const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
   const [videos, setVideos] = useState<SiteVideo[]>(initialVideos);
   const [selectedVideoId, setSelectedVideoId] = useState(
     initialVideos[0]?.id ?? "",
@@ -517,16 +518,17 @@ export function AdminInventoryManager({
     const [inventoryResult, videosResult] = (await Promise.all([
       inventoryResponse.json(),
       videosResponse.json(),
-    ])) as Array<{ mode?: string; count?: number }>;
+    ])) as Array<{ mode?: string; count?: number; deleted?: number }>;
 
     const savedToSupabase =
       inventoryResult.mode === "supabase" || videosResult.mode === "supabase";
+    const deletedCount = inventoryResult.deleted ?? deletedVehicles.length;
 
     setNotice(
       savedToSupabase
         ? `Saved ${inventoryResult.count ?? vehicles.length} vehicles and ${
             videosResult.count ?? videos.length
-          } videos to Supabase.`
+          } videos to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
         : "Draft saved locally. Add Supabase env vars for remote persistence.",
     );
     setSaving(false);
@@ -608,12 +610,60 @@ export function AdminInventoryManager({
   }
 
   function removeVehicle(id: string) {
+    const vehicle = vehicles.find((item) => item.id === id);
+
+    if (!vehicle) {
+      return;
+    }
+
+    const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
+    const confirmed = window.confirm(
+      `Remove ${vehicleName || "this vehicle"} from inventory? It will move to Deleted vehicles until you save.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setVehicles((current) => {
       const next = current.filter((vehicle) => vehicle.id !== id);
       setSelectedId(next[0]?.id ?? "");
       return next;
     });
-    setNotice("Vehicle removed from draft. Click Save Draft to publish the deletion.");
+    setDeletedVehicles((current) =>
+      current.some((deleted) => deleted.id === id) ? current : [vehicle, ...current],
+    );
+    setNotice(
+      "Vehicle moved to Deleted vehicles. Click Save Draft to publish the deletion.",
+    );
+  }
+
+  function restoreVehicle(id: string) {
+    const vehicle = deletedVehicles.find((item) => item.id === id);
+
+    if (!vehicle) {
+      return;
+    }
+
+    setVehicles((current) =>
+      current.some((item) => item.id === id) ? current : [vehicle, ...current],
+    );
+    setDeletedVehicles((current) => current.filter((item) => item.id !== id));
+    setSelectedId(id);
+    setNotice("Vehicle restored to the draft.");
+  }
+
+  function clearDeletedVehicles() {
+    const confirmed = window.confirm(
+      "Clear the Deleted vehicles list? This only removes the recovery list from admin.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletedVehicles([]);
+    setNotice("Deleted vehicles list cleared.");
   }
 
   function exportDraft() {
@@ -790,6 +840,36 @@ export function AdminInventoryManager({
             {!filteredAdminVehicles.length ? (
               <p className="admin-empty">No vehicles match these filters.</p>
             ) : null}
+          </div>
+
+          <div className="deleted-vehicles-panel">
+            <div className="deleted-vehicles-head">
+              <span>Deleted vehicles</span>
+              {deletedVehicles.length ? (
+                <button onClick={clearDeletedVehicles} type="button">
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            {deletedVehicles.length ? (
+              <div className="deleted-vehicles-list">
+                {deletedVehicles.map((vehicle) => (
+                  <div className="deleted-vehicle-row" key={vehicle.id}>
+                    <div>
+                      <strong>
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </strong>
+                      <small>{vehicle.stockNumber || "No stock #"}</small>
+                    </div>
+                    <button onClick={() => restoreVehicle(vehicle.id)} type="button">
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No deleted vehicles in this draft.</p>
+            )}
           </div>
         </div>
 
