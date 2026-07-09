@@ -554,6 +554,7 @@ h3 {
   display: grid;
   min-height: 164px;
   aspect-ratio: 16 / 9;
+  max-height: 252px;
   place-items: center;
   background:
     linear-gradient(135deg, rgba(20, 63, 58, 0.9), rgba(255, 107, 43, 0.82)),
@@ -599,10 +600,10 @@ h3 {
 
 .vehicle-body {
   display: flex;
-  min-height: 360px;
+  min-height: 0;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .vehicle-topline,
@@ -639,8 +640,9 @@ h3 {
 }
 
 .stock-label {
-  background: rgba(24, 32, 31, 0.08);
-  color: var(--ink);
+  border: 1px solid rgba(21, 18, 15, 0.08);
+  background: #fffaf1;
+  color: var(--muted);
 }
 
 .claim-label {
@@ -655,34 +657,39 @@ h3 {
 
 .vehicle-summary {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .vehicle-summary h3 {
-  min-height: 52px;
+  min-height: 0;
+  line-height: 1.04;
 }
 
 .vehicle-summary > p {
-  min-height: 40px;
+  min-height: 0;
+  color: var(--ink);
 }
 
 .vehicle-summary strong {
   width: fit-content;
   background: var(--gold);
   color: var(--ink);
-  padding: 3px 7px;
-  font-size: 19px;
-  box-shadow: 3px 3px 0 rgba(21, 18, 15, 0.18);
+  padding: 2px 6px;
+  font-size: 18px;
+  box-shadow: 2px 2px 0 rgba(21, 18, 15, 0.16);
 }
 
 .vehicle-specs {
-  margin: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 2px 0 0;
 }
 
 .vehicle-specs div {
-  flex: 1 1 92px;
+  min-width: 0;
   border-top: 1px solid var(--line);
-  padding-top: 8px;
+  padding-top: 7px;
 }
 
 .vehicle-specs .wide-spec {
@@ -702,6 +709,15 @@ h3 {
   margin: 3px 0 0;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.vehicle-card-hint {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
 }
 
 .vehicle-grid.list-view {
@@ -751,9 +767,13 @@ h3 {
 
 .vehicle-grid.list-view .vehicle-specs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px 12px;
   margin: 0;
+}
+
+.vehicle-grid.list-view .vehicle-card-hint {
+  grid-column: 1 / -1;
 }
 
 .vehicle-grid.list-view .vehicle-specs div {
@@ -1442,10 +1462,6 @@ h3 {
 
   .filter-search {
     grid-column: span 2;
-  }
-
-  .vehicle-body {
-    min-height: 340px;
   }
 
   .vehicle-grid.list-view .vehicle-body {

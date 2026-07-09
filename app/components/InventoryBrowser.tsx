@@ -376,28 +376,15 @@ export function InventoryBrowser({
                     <dd>{vehicle.className || "Class TBD"}</dd>
                   </div>
                   <div>
-                    <dt>Color</dt>
-                    <dd>{vehicle.exteriorColor}</dd>
-                  </div>
-                  <div>
                     <dt>Drivetrain</dt>
                     <dd>{vehicle.drivetrain || "TBD"}</dd>
-                  </div>
-                  <div>
-                    <dt>Transmission</dt>
-                    <dd>{inferTransmission(vehicle) || "TBD"}</dd>
                   </div>
                   <div>
                     <dt>Fuel</dt>
                     <dd>{inferFuel(vehicle) || "TBD"}</dd>
                   </div>
-                  {vehicle.vin ? (
-                    <div className="wide-spec">
-                      <dt>VIN</dt>
-                      <dd>{vehicle.vin}</dd>
-                    </div>
-                  ) : null}
                 </dl>
+                <span className="vehicle-card-hint">View details</span>
               </div>
             </article>
           ))}
