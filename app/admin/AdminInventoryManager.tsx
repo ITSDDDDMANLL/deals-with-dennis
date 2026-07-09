@@ -487,10 +487,16 @@ export function AdminInventoryManager({
       return;
     }
 
-    const result = (await response.json()) as { mode?: string; count?: number };
+    const result = (await response.json()) as {
+      databaseError?: string;
+      mode?: string;
+      count?: number;
+    };
     setNotice(
-      result.mode === "supabase"
-        ? `Saved ${result.count ?? videos.length} homepage videos to Supabase.`
+      result.mode === "supabase" || result.mode === "supabase-storage"
+        ? `Saved ${result.count ?? videos.length} homepage videos${
+            result.databaseError ? " using Storage fallback" : ""
+          }.`
         : "Videos saved locally. Add Supabase env vars for remote persistence.",
     );
     setVideoUploadStatus("");

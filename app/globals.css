@@ -1106,13 +1106,52 @@ h3 {
 }
 
 .video-panel video,
-.video-panel iframe {
+.video-panel iframe,
+.external-video-preview {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
   background: var(--ink);
   object-fit: cover;
+}
+
+.external-video-preview {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  background:
+    linear-gradient(135deg, rgba(20, 63, 58, 0.92), rgba(255, 107, 43, 0.78)),
+    var(--forest);
+  color: #fffaf1;
+  padding: 20px;
+  text-align: center;
+}
+
+.external-video-preview span {
+  border: 2px solid rgba(255, 250, 241, 0.72);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.external-video-preview p {
+  margin: 0;
+  color: #fffaf1;
+  font-weight: 900;
+}
+
+.external-video-preview a {
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  padding: 9px 14px;
+  font-weight: 950;
+  box-shadow: 3px 3px 0 rgba(21, 18, 15, 0.4);
 }
 
 .video-caption,
@@ -1500,6 +1539,7 @@ h3 {
 
 .video-upload-card video,
 .video-upload-card iframe,
+.video-upload-card .external-video-preview,
 .video-upload-empty {
   width: 100%;
   overflow: hidden;

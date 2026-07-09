@@ -7,6 +7,7 @@ type SiteVideoFrameProps = {
 
 export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
   const embedUrl = getEmbeddableVideoUrl(video.videoUrl);
+  const isDirectVideo = isDirectVideoUrl(video.videoUrl);
 
   if (embedUrl) {
     return (
@@ -21,6 +22,18 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
     );
   }
 
+  if (!isDirectVideo) {
+    return (
+      <div className={`external-video-preview ${className}`}>
+        <span>Deals with Dennis</span>
+        <p>{video.title || "Social video"}</p>
+        <a href={video.videoUrl} rel="noopener" target="_blank">
+          Open video
+        </a>
+      </div>
+    );
+  }
+
   return (
     <video
       className={className}
@@ -31,6 +44,16 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
       src={video.videoUrl}
     />
   );
+}
+
+function isDirectVideoUrl(value: string) {
+  const url = safeUrl(value);
+
+  if (!url) {
+    return false;
+  }
+
+  return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url.pathname + url.search);
 }
 
 function getEmbeddableVideoUrl(value: string) {

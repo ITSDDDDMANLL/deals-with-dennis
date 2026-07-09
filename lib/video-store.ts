@@ -1,5 +1,8 @@
 import { createSupabaseAdmin } from "./supabase/admin";
 
+const storageBucket = process.env.SUPABASE_SITE_VIDEO_BUCKET ?? "site-videos";
+const storageConfigPath = "config/homepage-videos.json";
+
 export type SiteVideo = {
   id: string;
   title: string;
@@ -48,9 +51,12 @@ export async function getSiteVideos(
   const { data, error } = await query;
 
   if (error || !data?.length) {
+    const storageVideos = await getStorageVideos(supabase);
+    const nextVideos = storageVideos.length ? storageVideos : fallback;
+
     return options.includeHidden
-      ? fallback
-      : fallback.filter((video) => video.isFeatured !== false);
+      ? nextVideos
+      : nextVideos.filter((video) => video.isFeatured !== false && video.videoUrl);
   }
 
   return (data as SiteVideoRow[]).map(rowToVideo).filter((video) => video.videoUrl);
@@ -69,10 +75,62 @@ export async function saveSiteVideos(videos: SiteVideo[]) {
     .upsert(rows, { onConflict: "id" });
 
   if (error) {
-    throw error;
+    const storageResult = await saveStorageVideos(supabase, videos);
+    return { ...storageResult, databaseError: error.message };
   }
 
   return { mode: "supabase", count: videos.length };
+}
+
+async function getStorageVideos(
+  supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+) {
+  const { data, error } = await supabase.storage
+    .from(storageBucket)
+    .download(storageConfigPath);
+
+  if (error || !data) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(await data.text()) as SiteVideo[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveStorageVideos(
+  supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+  videos: SiteVideo[],
+) {
+  await ensureStorageBucket(supabase);
+
+  const { error } = await supabase.storage
+    .from(storageBucket)
+    .upload(storageConfigPath, JSON.stringify(videos, null, 2), {
+      contentType: "application/json",
+      upsert: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return { mode: "supabase-storage", count: videos.length };
+}
+
+async function ensureStorageBucket(
+  supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+) {
+  const { error } = await supabase.storage.createBucket(storageBucket, {
+    public: true,
+  });
+
+  if (error && !error.message.toLowerCase().includes("already exists")) {
+    throw error;
+  }
 }
 
 function rowToVideo(row: SiteVideoRow): SiteVideo {
