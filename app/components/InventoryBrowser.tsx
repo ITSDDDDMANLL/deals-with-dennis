@@ -503,8 +503,16 @@ function inferFuel(vehicle: Vehicle) {
 
   const haystack = `${vehicle.make} ${vehicle.model} ${vehicle.trim}`.toLowerCase();
 
+  if (haystack.includes("diesel")) {
+    return "Diesel";
+  }
+
+  if (haystack.includes("phev") || haystack.includes("plug-in")) {
+    return "PHEV";
+  }
+
   if (haystack.includes("tesla") || haystack.includes("electric")) {
-    return "Electric";
+    return "EV";
   }
 
   if (haystack.includes("hybrid")) {
@@ -525,5 +533,5 @@ function inferTransmission(vehicle: Vehicle) {
     return "Manual";
   }
 
-  return "Automatic";
+  return "Auto";
 }

@@ -12,7 +12,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const vehicles = await getInventoryVehicles(getFeaturedVehicles());
+  const vehicles = await getInventoryVehicles(getFeaturedVehicles(), {
+    includeHidden: true,
+  });
 
   return NextResponse.json({ vehicles });
 }

@@ -932,7 +932,7 @@ h3 {
 
 .admin-toolbar,
 .admin-editor,
-.admin-list {
+.admin-sidebar {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
@@ -985,6 +985,46 @@ h3 {
   align-items: start;
 }
 
+.admin-sidebar {
+  display: grid;
+  overflow: hidden;
+}
+
+.admin-list-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 12px;
+}
+
+.admin-list-filters label {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-list-filters label:first-child {
+  grid-column: 1 / -1;
+}
+
+.admin-list-filters span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-list-filters input,
+.admin-list-filters select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fffdf8;
+  color: var(--ink);
+  padding: 8px 10px;
+}
+
 .admin-list {
   display: grid;
   max-height: 720px;
@@ -1015,6 +1055,14 @@ h3 {
 
 .admin-list small {
   color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-empty {
+  margin: 0;
+  padding: 14px;
+  color: var(--muted);
+  font-size: 13px;
   font-weight: 800;
 }
 

@@ -44,9 +44,6 @@ const editableFields = [
   "exteriorColor",
   "priceLabel",
   "mileageLabel",
-  "drivetrain",
-  "transmission",
-  "fuel",
 ] as const;
 
 type EditableField = (typeof editableFields)[number];
@@ -57,6 +54,9 @@ const claimStatusOptions: { label: string; value: ClaimStatus }[] = [
   { label: "Minor claim", value: "minor-claim" },
   { label: "Claim over $5k", value: "claim-over-5k" },
 ];
+const drivetrainOptions = ["FWD", "RWD", "AWD", "4x4"];
+const transmissionOptions = ["Manual", "Auto"];
+const fuelOptions = ["Diesel", "Gasoline", "Hybrid", "EV", "PHEV"];
 
 export function AdminInventoryManager({
   initialVehicles,
@@ -73,6 +73,12 @@ export function AdminInventoryManager({
   const [selectedId, setSelectedId] = useState(initialVehicles[0]?.id ?? "");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [adminSearch, setAdminSearch] = useState("");
+  const [adminTypeFilter, setAdminTypeFilter] = useState("all");
+  const [adminStatusFilter, setAdminStatusFilter] = useState("all");
+  const [adminFeaturedFilter, setAdminFeaturedFilter] = useState("all");
+  const [adminYearFilter, setAdminYearFilter] = useState("all");
+  const [adminMakeFilter, setAdminMakeFilter] = useState("all");
 
   useEffect(() => {
     void loadInventory();
@@ -96,6 +102,70 @@ export function AdminInventoryManager({
     () => vehicles.find((vehicle) => vehicle.id === selectedId) ?? vehicles[0],
     [selectedId, vehicles],
   );
+  const adminYearOptions = useMemo(
+    () => uniqueAdminValues(vehicles.map((vehicle) => vehicle.year)).sort(
+      (a, b) => Number(b) - Number(a),
+    ),
+    [vehicles],
+  );
+  const adminMakeOptions = useMemo(
+    () => uniqueAdminValues(vehicles.map((vehicle) => vehicle.make)),
+    [vehicles],
+  );
+  const filteredAdminVehicles = useMemo(() => {
+    const searchNeedle = adminSearch.trim().toLowerCase();
+
+    return vehicles.filter((vehicle) => {
+      const searchMatches =
+        !searchNeedle ||
+        [
+          vehicle.year,
+          vehicle.make,
+          vehicle.model,
+          vehicle.trim,
+          vehicle.stockNumber,
+          vehicle.vin,
+          vehicle.className,
+          vehicle.exteriorColor,
+          vehicle.drivetrain,
+          vehicle.transmission,
+          vehicle.fuel,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchNeedle);
+      const typeMatches =
+        adminTypeFilter === "all" || vehicle.type === adminTypeFilter;
+      const statusMatches =
+        adminStatusFilter === "all" || vehicle.status === adminStatusFilter;
+      const featuredMatches =
+        adminFeaturedFilter === "all" ||
+        (adminFeaturedFilter === "yes"
+          ? vehicle.isFeatured !== false
+          : vehicle.isFeatured === false);
+      const yearMatches =
+        adminYearFilter === "all" || String(vehicle.year) === adminYearFilter;
+      const makeMatches =
+        adminMakeFilter === "all" || vehicle.make === adminMakeFilter;
+
+      return (
+        searchMatches &&
+        typeMatches &&
+        statusMatches &&
+        featuredMatches &&
+        yearMatches &&
+        makeMatches
+      );
+    });
+  }, [
+    adminFeaturedFilter,
+    adminMakeFilter,
+    adminSearch,
+    adminStatusFilter,
+    adminTypeFilter,
+    adminYearFilter,
+    vehicles,
+  ]);
 
   function updateVehicle(id: string, patch: Partial<EditableVehicle>) {
     setVehicles((current) =>
@@ -351,20 +421,99 @@ export function AdminInventoryManager({
       {notice ? <p className="admin-notice">{notice}</p> : null}
 
       <div className="admin-workspace">
-        <div className="admin-list" aria-label="Inventory vehicles">
-          {vehicles.map((vehicle) => (
-            <button
-              className={vehicle.id === selectedVehicle?.id ? "active" : ""}
-              key={vehicle.id}
-              onClick={() => setSelectedId(vehicle.id)}
-              type="button"
-            >
-              <span>
-                {vehicle.year} {vehicle.make} {vehicle.model}
-              </span>
-              <small>{vehicle.stockNumber || "No stock #"}</small>
-            </button>
-          ))}
+        <div className="admin-sidebar">
+          <div className="admin-list-filters">
+            <label>
+              <span>Search</span>
+              <input
+                value={adminSearch}
+                onChange={(event) => setAdminSearch(event.target.value)}
+                placeholder="Search vehicles"
+                type="search"
+              />
+            </label>
+            <label>
+              <span>Year</span>
+              <select
+                value={adminYearFilter}
+                onChange={(event) => setAdminYearFilter(event.target.value)}
+              >
+                <option value="all">All years</option>
+                {adminYearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Make</span>
+              <select
+                value={adminMakeFilter}
+                onChange={(event) => setAdminMakeFilter(event.target.value)}
+              >
+                <option value="all">All makes</option>
+                {adminMakeOptions.map((make) => (
+                  <option key={make} value={make}>
+                    {make}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Type</span>
+              <select
+                value={adminTypeFilter}
+                onChange={(event) => setAdminTypeFilter(event.target.value)}
+              >
+                <option value="all">All types</option>
+                <option value="used">Used</option>
+                <option value="new">New</option>
+              </select>
+            </label>
+            <label>
+              <span>Status</span>
+              <select
+                value={adminStatusFilter}
+                onChange={(event) => setAdminStatusFilter(event.target.value)}
+              >
+                <option value="all">All statuses</option>
+                <option value="available">Available</option>
+                <option value="incoming">Incoming</option>
+                <option value="sold">Sold</option>
+              </select>
+            </label>
+            <label>
+              <span>Featured</span>
+              <select
+                value={adminFeaturedFilter}
+                onChange={(event) => setAdminFeaturedFilter(event.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="yes">Featured</option>
+                <option value="no">Not featured</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="admin-list" aria-label="Inventory vehicles">
+            {filteredAdminVehicles.map((vehicle) => (
+              <button
+                className={vehicle.id === selectedVehicle?.id ? "active" : ""}
+                key={vehicle.id}
+                onClick={() => setSelectedId(vehicle.id)}
+                type="button"
+              >
+                <span>
+                  {vehicle.year} {vehicle.make} {vehicle.model}
+                </span>
+                <small>{vehicle.stockNumber || "No stock #"}</small>
+              </button>
+            ))}
+            {!filteredAdminVehicles.length ? (
+              <p className="admin-empty">No vehicles match these filters.</p>
+            ) : null}
+          </div>
         </div>
 
         {selectedVehicle ? (
@@ -508,6 +657,33 @@ export function AdminInventoryManager({
                 </label>
               ))}
 
+              <SelectWithOther
+                label="Drivetrain"
+                onChange={(value) =>
+                  updateVehicle(selectedVehicle.id, { drivetrain: value })
+                }
+                options={drivetrainOptions}
+                value={selectedVehicle.drivetrain ?? ""}
+              />
+
+              <SelectWithOther
+                label="Transmission"
+                onChange={(value) =>
+                  updateVehicle(selectedVehicle.id, { transmission: value })
+                }
+                options={transmissionOptions}
+                value={selectedVehicle.transmission ?? ""}
+              />
+
+              <SelectWithOther
+                label="Fuel"
+                onChange={(value) =>
+                  updateVehicle(selectedVehicle.id, { fuel: value })
+                }
+                options={fuelOptions}
+                value={selectedVehicle.fuel ?? ""}
+              />
+
               <label className="editor-wide">
                 <span>Featured on public site</span>
                 <select
@@ -556,12 +732,72 @@ function fieldLabel(field: EditableField) {
     exteriorColor: "Color",
     priceLabel: "Price",
     mileageLabel: "Mileage",
-    drivetrain: "Drivetrain",
-    transmission: "Transmission",
-    fuel: "Fuel",
   };
 
   return labels[field];
+}
+
+function SelectWithOther({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: string[];
+  value: string;
+}) {
+  const [isOther, setIsOther] = useState(
+    Boolean(value) && !options.includes(value),
+  );
+
+  useEffect(() => {
+    setIsOther(Boolean(value) && !options.includes(value));
+  }, [options, value]);
+
+  return (
+    <label>
+      <span>{label}</span>
+      <select
+        value={isOther ? "__other" : value}
+        onChange={(event) => {
+          if (event.target.value === "__other") {
+            setIsOther(true);
+            onChange(options.includes(value) ? "" : value);
+            return;
+          }
+
+          setIsOther(false);
+          onChange(event.target.value);
+        }}
+      >
+        <option value="">Select {label.toLowerCase()}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value="__other">Other</option>
+      </select>
+      {isOther ? (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={`Enter ${label.toLowerCase()}`}
+          type="text"
+        />
+      ) : null}
+    </label>
+  );
+}
+
+function uniqueAdminValues(values: Array<string | number | null | undefined>) {
+  return [
+    ...new Set(
+      values.map((value) => String(value ?? "").trim()).filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
 function parseCsv(text: string) {
