@@ -613,7 +613,7 @@ export function AdminInventoryManager({
       setSelectedId(next[0]?.id ?? "");
       return next;
     });
-    setNotice("Vehicle removed from draft.");
+    setNotice("Vehicle removed from draft. Click Save Draft to publish the deletion.");
   }
 
   function exportDraft() {

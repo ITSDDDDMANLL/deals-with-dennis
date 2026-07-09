@@ -66,6 +66,36 @@ export async function saveInventoryVehicles(vehicles: Vehicle[]) {
   }
 
   const rows = vehicles.map(vehicleToRow);
+  const nextStockNumbers = new Set(
+    rows.map((row) => row.stock_number).filter(Boolean),
+  );
+  const { data: existingRows, error: existingError } = await supabase
+    .from("inventory_vehicles")
+    .select("id, stock_number");
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  const staleIds = (existingRows ?? [])
+    .filter((row) => !nextStockNumbers.has(String(row.stock_number ?? "")))
+    .map((row) => String(row.id));
+
+  if (staleIds.length) {
+    const { error: deleteError } = await supabase
+      .from("inventory_vehicles")
+      .delete()
+      .in("id", staleIds);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+  }
+
+  if (!rows.length) {
+    return { mode: "supabase", count: 0, deleted: staleIds.length };
+  }
+
   const { error } = await supabase
     .from("inventory_vehicles")
     .upsert(rows, { onConflict: "stock_number" });
@@ -74,7 +104,7 @@ export async function saveInventoryVehicles(vehicles: Vehicle[]) {
     throw error;
   }
 
-  return { mode: "supabase", count: vehicles.length };
+  return { mode: "supabase", count: vehicles.length, deleted: staleIds.length };
 }
 
 function rowToVehicle(row: InventoryRow): Vehicle {
