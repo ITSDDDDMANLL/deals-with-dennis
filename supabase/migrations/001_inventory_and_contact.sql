@@ -47,8 +47,24 @@ create table if not exists public.contact_inquiries (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.site_videos (
+  id text primary key,
+  title text,
+  description text,
+  video_url text,
+  thumbnail_url text,
+  is_featured boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists site_videos_featured_idx
+  on public.site_videos (is_featured, sort_order);
+
 alter table public.inventory_vehicles enable row level security;
 alter table public.contact_inquiries enable row level security;
+alter table public.site_videos enable row level security;
 
 drop policy if exists "Public can read available inventory" on public.inventory_vehicles;
 create policy "Public can read available inventory"
@@ -68,8 +84,24 @@ create policy "Service role manages contact inquiries"
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
+drop policy if exists "Public can read featured videos" on public.site_videos;
+create policy "Public can read featured videos"
+  on public.site_videos
+  for select
+  using (is_featured = true);
+
+drop policy if exists "Service role manages site videos" on public.site_videos;
+create policy "Service role manages site videos"
+  on public.site_videos
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
 insert into storage.buckets (id, name, public)
 values ('vehicle-images', 'vehicle-images', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
+values ('site-videos', 'site-videos', true)
 on conflict (id) do update set public = true;
 
 drop policy if exists "Public can read vehicle images" on storage.objects;
@@ -78,8 +110,20 @@ create policy "Public can read vehicle images"
   for select
   using (bucket_id = 'vehicle-images');
 
+drop policy if exists "Public can read site videos" on storage.objects;
+create policy "Public can read site videos"
+  on storage.objects
+  for select
+  using (bucket_id = 'site-videos');
+
 drop policy if exists "Service role manages vehicle images" on storage.objects;
 create policy "Service role manages vehicle images"
   on storage.objects
   using (bucket_id = 'vehicle-images' and auth.role() = 'service_role')
   with check (bucket_id = 'vehicle-images' and auth.role() = 'service_role');
+
+drop policy if exists "Service role manages site videos" on storage.objects;
+create policy "Service role manages site videos"
+  on storage.objects
+  using (bucket_id = 'site-videos' and auth.role() = 'service_role')
+  with check (bucket_id = 'site-videos' and auth.role() = 'service_role');

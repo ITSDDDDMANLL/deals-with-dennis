@@ -5,6 +5,7 @@ import { AdminLogin } from "./AdminLogin";
 import { getFeaturedVehicles } from "../data/inventory";
 import { getAdminCookieName, isAdminSessionValueValid } from "../../lib/admin-auth";
 import { getInventoryVehicles } from "../../lib/inventory-store";
+import { getSiteVideos } from "../../lib/video-store";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ export default async function AdminPage() {
   );
   const vehicles = isAuthenticated
     ? await getInventoryVehicles(getFeaturedVehicles(), { includeHidden: true })
+    : [];
+  const videos = isAuthenticated
+    ? await getSiteVideos([], { includeHidden: true })
     : [];
 
   return (
@@ -55,7 +59,10 @@ export default async function AdminPage() {
               </p>
             </section>
 
-            <AdminInventoryManager initialVehicles={vehicles} />
+            <AdminInventoryManager
+              initialVehicles={vehicles}
+              initialVideos={videos}
+            />
           </>
         ) : (
           <AdminLogin />

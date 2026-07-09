@@ -2,6 +2,7 @@ import { ContactForm } from "./components/ContactForm";
 import { InventoryBrowser } from "./components/InventoryBrowser";
 import { getFeaturedVehicles } from "./data/inventory";
 import { getInventoryVehicles } from "../lib/inventory-store";
+import { getSiteVideos } from "../lib/video-store";
 
 const socialLinks = [
   { label: "Instagram", href: "https://www.instagram.com/dealswithdennis/" },
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const vehicles = await getInventoryVehicles(getFeaturedVehicles());
+  const videos = await getSiteVideos();
+  const featuredVideo = videos[0];
 
   return (
     <main>
@@ -112,15 +115,16 @@ export default async function Home() {
         <section className="section about-section" id="about">
           <div className="about-copy">
             <p className="eyebrow">About Dennis</p>
-            <h2>Follow Deals with Dennis for fresh inventory.</h2>
+            <h2>Follow Deals with Dennis for quick car finds.</h2>
             <p>
-              My job is to make the buying process feel clear. I can help you
-              compare trims, payments, trade-in options, and availability
-              before you spend time at the dealership.
+              I make short, practical car content for people who want the real
+              details before they visit the store: what just arrived, what is
+              worth seeing first, and what each vehicle feels like in person.
             </p>
             <p>
-              I will use Deals with Dennis for walk-around videos, featured
-              deals, quick updates, and the cars I think are worth seeing first.
+              Deals with Dennis is where I post walk-arounds, fresh inventory
+              drops, quick takes, and simple buying notes so you can compare
+              options without the dealership pressure.
             </p>
             <div className="social-row">
               {socialLinks.map((link) => (
@@ -136,14 +140,34 @@ export default async function Home() {
               ))}
             </div>
           </div>
-          <div className="media-panel">
-            <p className="media-kicker">Deals with Dennis</p>
-            <h3>Inventory drops, quick takes, and walk-arounds.</h3>
-            <p>
-              This space will point visitors toward the videos and posts that
-              make each featured vehicle easier to understand before they come
-              in.
-            </p>
+          <div className="media-panel video-panel">
+            {featuredVideo ? (
+              <>
+                <video
+                  controls
+                  playsInline
+                  poster={featuredVideo.thumbnailUrl || undefined}
+                  preload="metadata"
+                  src={featuredVideo.videoUrl}
+                />
+                <div className="video-caption">
+                  <p className="media-kicker">Deals with Dennis</p>
+                  <h3>{featuredVideo.title || "Latest walk-around"}</h3>
+                  {featuredVideo.description ? (
+                    <p>{featuredVideo.description}</p>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <div className="video-placeholder">
+                <p className="media-kicker">Deals with Dennis</p>
+                <h3>Inventory drops, quick takes, and walk-arounds.</h3>
+                <p>
+                  Upload a featured video from the admin page and it will play
+                  here for visitors.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 

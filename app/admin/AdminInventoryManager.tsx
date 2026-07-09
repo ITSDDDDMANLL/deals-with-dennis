@@ -2,14 +2,17 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
+import type { SiteVideo } from "../../lib/video-store";
 
 type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
 };
 
 const storageKey = "deals-with-dennis-admin-inventory";
+const videoStorageKey = "deals-with-dennis-admin-videos";
 const maxVehicleImages = 20;
 const maxImageSizeBytes = 2_500_000;
+const maxVideoSizeBytes = 25_000_000;
 
 const blankVehicle: EditableVehicle = {
   id: "draft-new-vehicle",
@@ -60,10 +63,22 @@ const drivetrainOptions = ["FWD", "RWD", "AWD", "4x4"];
 const transmissionOptions = ["Manual", "Auto"];
 const fuelOptions = ["Diesel", "Gasoline", "Hybrid", "EV", "PHEV"];
 
+const blankVideo: SiteVideo = {
+  id: "draft-new-video",
+  title: "",
+  description: "",
+  videoUrl: "",
+  thumbnailUrl: "",
+  isFeatured: true,
+  sortOrder: 0,
+};
+
 export function AdminInventoryManager({
   initialVehicles,
+  initialVideos,
 }: {
   initialVehicles: Vehicle[];
+  initialVideos: SiteVideo[];
 }) {
   const [vehicles, setVehicles] = useState<EditableVehicle[]>(() =>
     initialVehicles.map((vehicle) => ({
@@ -81,28 +96,47 @@ export function AdminInventoryManager({
   const [adminFeaturedFilter, setAdminFeaturedFilter] = useState("all");
   const [adminYearFilter, setAdminYearFilter] = useState("all");
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
+  const [videos, setVideos] = useState<SiteVideo[]>(initialVideos);
+  const [selectedVideoId, setSelectedVideoId] = useState(
+    initialVideos[0]?.id ?? "",
+  );
 
   useEffect(() => {
     void loadInventory();
+    void loadVideos();
 
     const saved = window.localStorage.getItem(storageKey);
 
-    if (!saved) {
-      return;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as EditableVehicle[];
+        setVehicles(parsed);
+        setSelectedId(parsed[0]?.id ?? "");
+      } catch {
+        setNotice("Saved draft could not be loaded.");
+      }
     }
 
-    try {
-      const parsed = JSON.parse(saved) as EditableVehicle[];
-      setVehicles(parsed);
-      setSelectedId(parsed[0]?.id ?? "");
-    } catch {
-      setNotice("Saved draft could not be loaded.");
+    const savedVideos = window.localStorage.getItem(videoStorageKey);
+
+    if (savedVideos) {
+      try {
+        const parsed = JSON.parse(savedVideos) as SiteVideo[];
+        setVideos(parsed);
+        setSelectedVideoId(parsed[0]?.id ?? "");
+      } catch {
+        setNotice("Saved video draft could not be loaded.");
+      }
     }
   }, []);
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === selectedId) ?? vehicles[0],
     [selectedId, vehicles],
+  );
+  const selectedVideo = useMemo(
+    () => videos.find((video) => video.id === selectedVideoId) ?? videos[0],
+    [selectedVideoId, videos],
   );
   const adminYearOptions = useMemo(
     () => uniqueAdminValues(vehicles.map((vehicle) => vehicle.year)).sort(
@@ -175,6 +209,57 @@ export function AdminInventoryManager({
         vehicle.id === id ? { ...vehicle, ...patch } : vehicle,
       ),
     );
+  }
+
+  function updateVideo(id: string, patch: Partial<SiteVideo>) {
+    setVideos((current) =>
+      current.map((video) => (video.id === id ? { ...video, ...patch } : video)),
+    );
+  }
+
+  async function uploadSiteVideo(
+    id: string,
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("video/") || file.size > maxVideoSizeBytes) {
+      setNotice("Video must be a video file and 25 MB or smaller.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("video", file);
+
+    const response = await fetch("/api/admin/videos/upload", {
+      body: formData,
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Video upload failed.");
+      return;
+    }
+
+    const result = (await response.json()) as {
+      videoUrl?: string;
+      mode?: string;
+    };
+
+    if (result.videoUrl) {
+      updateVideo(id, { videoUrl: result.videoUrl });
+      setNotice(
+        `Video uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}.`,
+      );
+    }
   }
 
   async function uploadVehicleImages(
@@ -287,26 +372,58 @@ export function AdminInventoryManager({
     }
   }
 
+  async function loadVideos() {
+    const response = await fetch("/api/admin/videos");
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = (await response.json()) as { videos?: SiteVideo[] };
+
+    if (data.videos?.length) {
+      setVideos(data.videos);
+      setSelectedVideoId(data.videos[0].id);
+    }
+  }
+
   async function saveDraft() {
     setSaving(true);
     window.localStorage.setItem(storageKey, JSON.stringify(vehicles));
+    window.localStorage.setItem(videoStorageKey, JSON.stringify(videos));
 
-    const response = await fetch("/api/admin/inventory", {
-      body: JSON.stringify({ vehicles }),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
+    const [inventoryResponse, videosResponse] = await Promise.all([
+      fetch("/api/admin/inventory", {
+        body: JSON.stringify({ vehicles }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }),
+      fetch("/api/admin/videos", {
+        body: JSON.stringify({ videos }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      }),
+    ]);
 
-    if (!response.ok) {
+    if (!inventoryResponse.ok || !videosResponse.ok) {
       setNotice("Draft saved locally, but server save failed.");
       setSaving(false);
       return;
     }
 
-    const result = (await response.json()) as { mode?: string; count?: number };
+    const [inventoryResult, videosResult] = (await Promise.all([
+      inventoryResponse.json(),
+      videosResponse.json(),
+    ])) as Array<{ mode?: string; count?: number }>;
+
+    const savedToSupabase =
+      inventoryResult.mode === "supabase" || videosResult.mode === "supabase";
+
     setNotice(
-      result.mode === "supabase"
-        ? `Saved ${result.count ?? vehicles.length} vehicles to Supabase.`
+      savedToSupabase
+        ? `Saved ${inventoryResult.count ?? vehicles.length} vehicles and ${
+            videosResult.count ?? videos.length
+          } videos to Supabase.`
         : "Draft saved locally. Add Supabase env vars for remote persistence.",
     );
     setSaving(false);
@@ -319,9 +436,12 @@ export function AdminInventoryManager({
       isFeatured: vehicle.isFeatured ?? true,
     }));
     window.localStorage.removeItem(storageKey);
+    window.localStorage.removeItem(videoStorageKey);
     setVehicles(next);
+    setVideos(initialVideos);
     setSelectedId(next[0]?.id ?? "");
-    setNotice("Draft reset to source inventory.");
+    setSelectedVideoId(initialVideos[0]?.id ?? "");
+    setNotice("Draft reset to source content.");
   }
 
   function addVehicle() {
@@ -330,6 +450,23 @@ export function AdminInventoryManager({
     setVehicles((current) => [next, ...current]);
     setSelectedId(id);
     setNotice("New vehicle draft added.");
+  }
+
+  function addVideo() {
+    const id = `video-${Date.now()}`;
+    const next = { ...blankVideo, id, sortOrder: videos.length };
+    setVideos((current) => [next, ...current]);
+    setSelectedVideoId(id);
+    setNotice("New video draft added.");
+  }
+
+  function removeVideo(id: string) {
+    setVideos((current) => {
+      const next = current.filter((video) => video.id !== id);
+      setSelectedVideoId(next[0]?.id ?? "");
+      return next;
+    });
+    setNotice("Video removed from draft.");
   }
 
   function removeVehicle(id: string) {
@@ -745,6 +882,156 @@ export function AdminInventoryManager({
             </div>
           </form>
         ) : null}
+      </div>
+
+      <div className="admin-video-panel">
+        <div className="editor-head">
+          <div>
+            <p className="eyebrow">Social media</p>
+            <h3>Homepage videos</h3>
+          </div>
+          <button className="button secondary" onClick={addVideo} type="button">
+            Add Video
+          </button>
+        </div>
+
+        <div className="video-admin-workspace">
+          <div className="admin-list video-list" aria-label="Homepage videos">
+            {videos.map((video) => (
+              <button
+                className={video.id === selectedVideo?.id ? "active" : ""}
+                key={video.id}
+                onClick={() => setSelectedVideoId(video.id)}
+                type="button"
+              >
+                <span>{video.title || "Untitled video"}</span>
+                <small>
+                  {video.isFeatured === false ? "Hidden" : "Featured"} ·{" "}
+                  {video.videoUrl ? "Video ready" : "No video yet"}
+                </small>
+              </button>
+            ))}
+            {!videos.length ? (
+              <p className="admin-empty">No videos yet. Add one to start.</p>
+            ) : null}
+          </div>
+
+          {selectedVideo ? (
+            <form className="admin-editor video-editor">
+              <div className="video-upload-card">
+                {selectedVideo.videoUrl ? (
+                  <video
+                    controls
+                    playsInline
+                    preload="metadata"
+                    src={selectedVideo.videoUrl}
+                  />
+                ) : (
+                  <div className="video-upload-empty">
+                    <span>Deals with Dennis</span>
+                    <p>Upload a short walk-around or paste a direct video URL.</p>
+                  </div>
+                )}
+                <div className="admin-actions">
+                  <label className="button secondary file-button">
+                    Upload Video
+                    <input
+                      accept="video/*"
+                      onChange={(event) => uploadSiteVideo(selectedVideo.id, event)}
+                      type="file"
+                    />
+                  </label>
+                  <button
+                    className="button danger"
+                    onClick={() => removeVideo(selectedVideo.id)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-grid">
+                <label>
+                  <span>Title</span>
+                  <input
+                    value={selectedVideo.title}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, { title: event.target.value })
+                    }
+                    placeholder="Fresh trade-in walk-around"
+                    type="text"
+                  />
+                </label>
+                <label>
+                  <span>Featured on homepage</span>
+                  <select
+                    value={selectedVideo.isFeatured === false ? "no" : "yes"}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, {
+                        isFeatured: event.target.value === "yes",
+                      })
+                    }
+                  >
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                <label className="editor-wide">
+                  <span>Direct Video URL</span>
+                  <input
+                    value={selectedVideo.videoUrl}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, {
+                        videoUrl: event.target.value,
+                      })
+                    }
+                    placeholder="https://.../video.mp4"
+                    type="url"
+                  />
+                </label>
+                <label className="editor-wide">
+                  <span>Thumbnail URL</span>
+                  <input
+                    value={selectedVideo.thumbnailUrl ?? ""}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, {
+                        thumbnailUrl: event.target.value,
+                      })
+                    }
+                    placeholder="Optional poster image URL"
+                    type="url"
+                  />
+                </label>
+                <label>
+                  <span>Sort order</span>
+                  <input
+                    value={selectedVideo.sortOrder ?? 0}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, {
+                        sortOrder: Number(event.target.value),
+                      })
+                    }
+                    type="number"
+                  />
+                </label>
+                <label className="editor-wide">
+                  <span>Description</span>
+                  <textarea
+                    value={selectedVideo.description}
+                    onChange={(event) =>
+                      updateVideo(selectedVideo.id, {
+                        description: event.target.value,
+                      })
+                    }
+                    placeholder="A quick note to show below the video."
+                    rows={4}
+                  />
+                </label>
+              </div>
+            </form>
+          ) : null}
+        </div>
       </div>
     </section>
   );
