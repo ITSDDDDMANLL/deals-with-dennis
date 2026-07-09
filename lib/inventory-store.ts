@@ -23,9 +23,17 @@ type InventoryRow = {
   raw_payload?: Record<string, unknown> | null;
 };
 
+export type InventoryHistoryEntry = {
+  historyStatus: "deleted" | "sold";
+  vehicle: Vehicle;
+};
+
+const inventorySelect =
+  "id, source, vehicle_type, year, make, model, trim, stock_number, vin, class_name, exterior_color, price_label, mileage_label, status, claim_status, is_featured, image_urls, raw_payload";
+
 export async function getInventoryVehicles(
   fallback: Vehicle[] = [],
-  options: { includeHidden?: boolean } = {},
+  options: { includeDeleted?: boolean; includeHidden?: boolean } = {},
 ) {
   const supabase = createSupabaseAdmin();
   const fallbackVehicles = fallback.length ? fallback : (seedVehicles as Vehicle[]);
@@ -38,9 +46,7 @@ export async function getInventoryVehicles(
 
   let query = supabase
     .from("inventory_vehicles")
-    .select(
-      "id, source, vehicle_type, year, make, model, trim, stock_number, vin, class_name, exterior_color, price_label, mileage_label, status, claim_status, is_featured, image_urls, raw_payload",
-    )
+    .select(inventorySelect)
     .order("created_at", { ascending: false });
 
   if (!options.includeHidden) {
@@ -55,7 +61,23 @@ export async function getInventoryVehicles(
       : fallbackVehicles.filter((vehicle) => vehicle.isFeatured !== false);
   }
 
-  return (data as InventoryRow[]).map(rowToVehicle);
+  return (data as InventoryRow[])
+    .filter((row) => options.includeDeleted || !isDeletedRow(row))
+    .map(rowToVehicle);
+}
+
+export async function getInventoryHistoryVehicles() {
+  const vehicles = await getInventoryVehicles([], {
+    includeDeleted: true,
+    includeHidden: true,
+  });
+
+  return vehicles
+    .filter((vehicle) => vehicle.deletedAt || vehicle.status === "sold")
+    .map<InventoryHistoryEntry>((vehicle) => ({
+      historyStatus: vehicle.deletedAt ? "deleted" : "sold",
+      vehicle,
+    }));
 }
 
 export async function saveInventoryVehicles(vehicles: Vehicle[]) {
@@ -71,29 +93,38 @@ export async function saveInventoryVehicles(vehicles: Vehicle[]) {
   );
   const { data: existingRows, error: existingError } = await supabase
     .from("inventory_vehicles")
-    .select("id, stock_number");
+    .select(inventorySelect);
 
   if (existingError) {
     throw existingError;
   }
 
-  const staleIds = (existingRows ?? [])
-    .filter((row) => !nextStockNumbers.has(String(row.stock_number ?? "")))
-    .map((row) => String(row.id));
+  const staleRows = ((existingRows ?? []) as InventoryRow[]).filter(
+    (row) =>
+      !isDeletedRow(row) && !nextStockNumbers.has(String(row.stock_number ?? "")),
+  );
+  const deletedAt = new Date().toISOString();
 
-  if (staleIds.length) {
-    const { error: deleteError } = await supabase
+  for (const row of staleRows) {
+    const { error: archiveError } = await supabase
       .from("inventory_vehicles")
-      .delete()
-      .in("id", staleIds);
+      .update({
+        is_featured: false,
+        raw_payload: {
+          ...(row.raw_payload ?? {}),
+          deletedAt,
+          historyStatus: "deleted",
+        },
+      })
+      .eq("id", row.id);
 
-    if (deleteError) {
-      throw deleteError;
+    if (archiveError) {
+      throw archiveError;
     }
   }
 
   if (!rows.length) {
-    return { mode: "supabase", count: 0, deleted: staleIds.length };
+    return { mode: "supabase", count: 0, deleted: staleRows.length };
   }
 
   const { error } = await supabase
@@ -104,7 +135,7 @@ export async function saveInventoryVehicles(vehicles: Vehicle[]) {
     throw error;
   }
 
-  return { mode: "supabase", count: vehicles.length, deleted: staleIds.length };
+  return { mode: "supabase", count: vehicles.length, deleted: staleRows.length };
 }
 
 function rowToVehicle(row: InventoryRow): Vehicle {
@@ -137,6 +168,7 @@ function rowToVehicle(row: InventoryRow): Vehicle {
         : [],
     details: String(raw.details ?? ""),
     highlights: String(raw.highlights ?? ""),
+    deletedAt: String(raw.deletedAt ?? ""),
   };
 }
 
@@ -160,6 +192,10 @@ function vehicleToRow(vehicle: Vehicle) {
     image_urls: vehicle.imageUrls ?? [],
     raw_payload: vehicle,
   };
+}
+
+function isDeletedRow(row: InventoryRow) {
+  return Boolean(row.raw_payload?.deletedAt);
 }
 
 function normalizeClaimStatus(value: unknown): Vehicle["claimStatus"] {

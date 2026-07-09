@@ -26,6 +26,7 @@ export type Vehicle = {
   imageUrls?: string[];
   details?: string;
   highlights?: string;
+  deletedAt?: string;
 };
 
 const newVehiclePlaceholders: Vehicle[] = [

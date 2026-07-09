@@ -1322,6 +1322,119 @@ h3 {
   padding: 24px 0 72px;
 }
 
+.history-shell {
+  display: grid;
+  gap: 18px;
+  padding: 24px 0 72px;
+}
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.history-summary div,
+.history-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgba(24, 32, 31, 0.08);
+}
+
+.history-summary div {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+
+.history-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.history-summary strong {
+  font-size: clamp(34px, 5vw, 54px);
+  line-height: 0.95;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.38fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+}
+
+.history-row-main {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.history-row-main h2 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 36px);
+}
+
+.history-row-main p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.history-status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.history-status.sold {
+  background: #e8f3ef;
+  color: var(--forest);
+}
+
+.history-status.deleted {
+  background: #fff0e8;
+  color: var(--rust);
+}
+
+.history-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.history-meta div {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.history-meta dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.history-meta dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
 .admin-login {
   display: grid;
   width: min(520px, 100%);
@@ -1924,6 +2037,7 @@ h3 {
   .inventory-page-head,
   .admin-hero,
   .admin-workspace,
+  .history-row,
   .about-section,
   .contact-section {
     grid-template-columns: 1fr;
@@ -1940,6 +2054,11 @@ h3 {
   }
 
   .vehicle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .history-summary,
+  .history-meta {
     grid-template-columns: 1fr;
   }
 
