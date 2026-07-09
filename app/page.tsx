@@ -54,7 +54,7 @@ export default async function Home() {
         <section className="hero">
           <div className="hero-copy">
             <p className="eyebrow">Deals with Dennis · Cam Clark Ford Richmond</p>
-            <h1>Fresh car finds, picked by Dennis.</h1>
+            <h1>Fresh car finds, picked by Dennis, Deals with Dennis.</h1>
             <p className="lead">
               A short list of cars worth checking out first. Watch the socials,
               browse the inventory, then message me before you visit.
@@ -156,12 +156,6 @@ export default async function Home() {
               timing, and next steps.
             </p>
             <dl className="info-list">
-              <div>
-                <dt>Direct line</dt>
-                <dd>
-                  <a href="tel:+12368784987">236-878-4987</a>
-                </dd>
-              </div>
               <div>
                 <dt>Address</dt>
                 <dd>13580 Smallwood Pl, Richmond, BC V6V 2C1</dd>
