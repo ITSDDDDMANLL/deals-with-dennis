@@ -107,7 +107,7 @@ export function AdminInventoryManager({
 
     const saved = window.localStorage.getItem(storageKey);
 
-    if (saved) {
+    if (saved && !initialVehicles.length) {
       try {
         const parsed = JSON.parse(saved) as EditableVehicle[];
         setVehicles(parsed);
@@ -119,7 +119,7 @@ export function AdminInventoryManager({
 
     const savedVideos = window.localStorage.getItem(videoStorageKey);
 
-    if (savedVideos) {
+    if (savedVideos && !initialVideos.length) {
       try {
         const parsed = JSON.parse(savedVideos) as SiteVideo[];
         setVideos(parsed);
@@ -369,6 +369,7 @@ export function AdminInventoryManager({
         })),
       );
       setSelectedId(data.vehicles[0].id);
+      window.localStorage.removeItem(storageKey);
     }
   }
 
@@ -384,6 +385,7 @@ export function AdminInventoryManager({
     if (data.videos?.length) {
       setVideos(data.videos);
       setSelectedVideoId(data.videos[0].id);
+      window.localStorage.removeItem(videoStorageKey);
     }
   }
 
