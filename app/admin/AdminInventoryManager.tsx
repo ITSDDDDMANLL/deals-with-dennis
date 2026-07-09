@@ -24,6 +24,8 @@ const blankVehicle: EditableVehicle = {
   priceLabel: "",
   mileageLabel: "",
   drivetrain: "",
+  transmission: "",
+  fuel: "",
   exteriorColor: "",
   status: "available",
   claimStatus: "unknown",
@@ -42,6 +44,9 @@ const editableFields = [
   "exteriorColor",
   "priceLabel",
   "mileageLabel",
+  "drivetrain",
+  "transmission",
+  "fuel",
 ] as const;
 
 type EditableField = (typeof editableFields)[number];
@@ -551,6 +556,9 @@ function fieldLabel(field: EditableField) {
     exteriorColor: "Color",
     priceLabel: "Price",
     mileageLabel: "Mileage",
+    drivetrain: "Drivetrain",
+    transmission: "Transmission",
+    fuel: "Fuel",
   };
 
   return labels[field];
@@ -610,6 +618,14 @@ function toCamelKey(value: string) {
     "claim status": "claimStatus",
     claim_status: "claimStatus",
     claims: "claimStatus",
+    drive: "drivetrain",
+    drivetrain: "drivetrain",
+    fuel: "fuel",
+    fuel_type: "fuel",
+    "fuel type": "fuel",
+    transmission: "transmission",
+    transmission_type: "transmission",
+    "transmission type": "transmission",
   };
   const lower = normalized.toLowerCase();
 

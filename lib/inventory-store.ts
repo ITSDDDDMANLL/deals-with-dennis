@@ -93,6 +93,8 @@ function rowToVehicle(row: InventoryRow): Vehicle {
     priceLabel: row.price_label ?? "Ask for pricing",
     mileageLabel: row.mileage_label ?? "Mileage TBD",
     drivetrain: String(raw.drivetrain ?? ""),
+    transmission: String(raw.transmission ?? ""),
+    fuel: String(raw.fuel ?? ""),
     exteriorColor: row.exterior_color ?? "Color TBD",
     status: row.status,
     claimStatus: normalizeClaimStatus(row.claim_status ?? raw.claimStatus),

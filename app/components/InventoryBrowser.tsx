@@ -497,6 +497,10 @@ function searchVehicle(vehicle: Vehicle, search: string) {
 }
 
 function inferFuel(vehicle: Vehicle) {
+  if (vehicle.fuel?.trim()) {
+    return vehicle.fuel.trim();
+  }
+
   const haystack = `${vehicle.make} ${vehicle.model} ${vehicle.trim}`.toLowerCase();
 
   if (haystack.includes("tesla") || haystack.includes("electric")) {
@@ -511,6 +515,10 @@ function inferFuel(vehicle: Vehicle) {
 }
 
 function inferTransmission(vehicle: Vehicle) {
+  if (vehicle.transmission?.trim()) {
+    return vehicle.transmission.trim();
+  }
+
   const haystack = `${vehicle.make} ${vehicle.model} ${vehicle.trim}`.toLowerCase();
 
   if (haystack.includes("manual") || haystack.includes("6-speed")) {

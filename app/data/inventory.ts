@@ -16,6 +16,8 @@ export type Vehicle = {
   priceLabel: string;
   mileageLabel: string;
   drivetrain: string;
+  transmission?: string;
+  fuel?: string;
   exteriorColor: string;
   status: "available" | "incoming" | "sold";
   claimStatus?: ClaimStatus;
