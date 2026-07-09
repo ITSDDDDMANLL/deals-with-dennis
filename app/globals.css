@@ -1116,6 +1116,18 @@ h3 {
   object-fit: cover;
 }
 
+.video-panel .video-embed-frame {
+  width: min(100%, 420px);
+  height: clamp(420px, 58vw, 640px);
+  aspect-ratio: auto;
+  margin: 0 auto;
+  background: #111;
+}
+
+.video-panel:has(.video-embed-frame) {
+  background: #111;
+}
+
 .external-video-preview {
   display: grid;
   align-content: center;
@@ -1547,6 +1559,14 @@ h3 {
   border-radius: 8px;
   aspect-ratio: 16 / 9;
   background: var(--ink);
+}
+
+.video-upload-card .video-embed-frame {
+  width: min(100%, 420px);
+  height: clamp(420px, 54vw, 640px);
+  justify-self: center;
+  aspect-ratio: auto;
+  background: #111;
 }
 
 .video-upload-card video {

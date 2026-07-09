@@ -14,7 +14,7 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
       <iframe
         allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
         allowFullScreen
-        className={className}
+        className={`video-embed-frame ${className}`.trim()}
         loading="lazy"
         src={embedUrl}
         title={video.title || "Deals with Dennis video"}
@@ -36,7 +36,7 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
 
   return (
     <video
-      className={className}
+      className={`video-file-frame ${className}`.trim()}
       controls
       playsInline
       poster={video.thumbnailUrl || undefined}
