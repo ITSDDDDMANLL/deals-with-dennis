@@ -41,6 +41,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ videoUrl, mode: "local" });
   }
 
+  const bucketError = await ensureVideoBucket(supabase);
+
+  if (bucketError) {
+    return NextResponse.json({ error: bucketError }, { status: 500 });
+  }
+
   const extension = getExtension(file);
   const path = `uploads/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const bytes = await file.arrayBuffer();
@@ -51,7 +57,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { error: `Unable to upload ${file.name}.` },
+      { error: `Unable to upload ${file.name}: ${error.message}` },
       { status: 500 },
     );
   }
@@ -83,6 +89,12 @@ async function createUploadTarget(request: Request) {
     );
   }
 
+  const bucketError = await ensureVideoBucket(supabase);
+
+  if (bucketError) {
+    return NextResponse.json({ error: bucketError }, { status: 500 });
+  }
+
   const extension = getExtension({ name: fileName, type: contentType });
   const path = `uploads/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { data, error } = await supabase.storage
@@ -91,7 +103,7 @@ async function createUploadTarget(request: Request) {
 
   if (error || !data?.signedUrl) {
     return NextResponse.json(
-      { error: "Unable to prepare video upload." },
+      { error: error?.message ?? "Unable to prepare video upload." },
       { status: 500 },
     );
   }
@@ -106,6 +118,22 @@ async function createUploadTarget(request: Request) {
     signedUrl: data.signedUrl,
     videoUrl: publicUrl,
   });
+}
+
+async function ensureVideoBucket(
+  supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+) {
+  const { error } = await supabase.storage.createBucket(bucketName, {
+    allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"],
+    fileSizeLimit: maxVideoSizeBytes,
+    public: true,
+  });
+
+  if (error && !error.message.toLowerCase().includes("already exists")) {
+    return `Unable to prepare video bucket: ${error.message}`;
+  }
+
+  return "";
 }
 
 async function isAuthenticated() {

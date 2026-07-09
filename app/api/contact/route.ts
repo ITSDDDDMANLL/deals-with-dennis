@@ -11,35 +11,84 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createSupabaseAdmin();
-
-  if (!supabase) {
-    return NextResponse.json({
-      ok: true,
-      mode: "local",
-      message:
-        "Inquiry accepted locally. Add Supabase env vars in Vercel to persist submissions.",
-    });
-  }
-
-  const { error } = await supabase.from("contact_inquiries").insert({
+  const inquiry = {
     name: String(body.name),
     phone: String(body.phone),
     vehicle_type: body.vehicleType ? String(body.vehicleType) : null,
     message: body.message ? String(body.message) : null,
     source: "website",
-  });
+  };
+  const supabase = createSupabaseAdmin();
+  let saveMode = "local";
 
-  if (error) {
-    return NextResponse.json(
-      { error: "Unable to save inquiry." },
-      { status: 500 },
-    );
+  if (supabase) {
+    const { error } = await supabase.from("contact_inquiries").insert(inquiry);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Unable to save inquiry." },
+        { status: 500 },
+      );
+    }
+
+    saveMode = "supabase";
   }
+
+  const notification = await sendInquiryNotification(inquiry);
 
   return NextResponse.json({
     ok: true,
-    mode: "supabase",
+    mode: saveMode,
+    notification,
     message: "Inquiry saved.",
   });
+}
+
+async function sendInquiryNotification(inquiry: {
+  message: string | null;
+  name: string;
+  phone: string;
+  source: string;
+  vehicle_type: string | null;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.CONTACT_NOTIFICATION_EMAIL;
+  const from =
+    process.env.CONTACT_FROM_EMAIL ?? "Deals with Dennis <onboarding@resend.dev>";
+
+  if (!apiKey || !to) {
+    return { mode: "skipped", reason: "Email notification env vars not set." };
+  }
+
+  const subject = `New Deals with Dennis inquiry from ${inquiry.name}`;
+  const text = [
+    "New website inquiry",
+    "",
+    `Name: ${inquiry.name}`,
+    `Phone: ${inquiry.phone}`,
+    `Vehicle interest: ${inquiry.vehicle_type ?? "Not sure yet"}`,
+    "",
+    "Message:",
+    inquiry.message || "No message provided.",
+  ].join("\n");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    body: JSON.stringify({
+      from,
+      subject,
+      text,
+      to,
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    return { mode: "failed", status: response.status };
+  }
+
+  return { mode: "sent" };
 }
