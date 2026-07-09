@@ -1,5 +1,6 @@
 import { ContactForm } from "./components/ContactForm";
 import { InventoryBrowser } from "./components/InventoryBrowser";
+import { SiteVideoFrame } from "./components/SiteVideoFrame";
 import { getFeaturedVehicles } from "./data/inventory";
 import { getInventoryVehicles } from "../lib/inventory-store";
 import { getSiteVideos } from "../lib/video-store";
@@ -143,13 +144,7 @@ export default async function Home() {
           <div className="media-panel video-panel">
             {featuredVideo ? (
               <>
-                <video
-                  controls
-                  playsInline
-                  poster={featuredVideo.thumbnailUrl || undefined}
-                  preload="metadata"
-                  src={featuredVideo.videoUrl}
-                />
+                <SiteVideoFrame video={featuredVideo} />
                 <div className="video-caption">
                   <p className="media-kicker">Deals with Dennis</p>
                   <h3>{featuredVideo.title || "Latest walk-around"}</h3>

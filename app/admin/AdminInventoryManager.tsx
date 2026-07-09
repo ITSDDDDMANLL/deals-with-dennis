@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
 import type { SiteVideo } from "../../lib/video-store";
+import { SiteVideoFrame } from "../components/SiteVideoFrame";
 
 type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
@@ -12,7 +13,7 @@ const storageKey = "deals-with-dennis-admin-inventory";
 const videoStorageKey = "deals-with-dennis-admin-videos";
 const maxVehicleImages = 20;
 const maxImageSizeBytes = 2_500_000;
-const maxVideoSizeBytes = 25_000_000;
+const maxVideoSizeBytes = 250_000_000;
 
 const blankVehicle: EditableVehicle = {
   id: "draft-new-vehicle",
@@ -100,6 +101,8 @@ export function AdminInventoryManager({
   const [selectedVideoId, setSelectedVideoId] = useState(
     initialVideos[0]?.id ?? "",
   );
+  const [videoSaving, setVideoSaving] = useState(false);
+  const [videoUploadStatus, setVideoUploadStatus] = useState("");
 
   useEffect(() => {
     void loadInventory();
@@ -228,16 +231,20 @@ export function AdminInventoryManager({
       return;
     }
 
-    if (!file.type.startsWith("video/") || file.size > maxVideoSizeBytes) {
-      setNotice("Video must be a video file and 25 MB or smaller.");
+    if (!isAllowedVideoFile(file) || file.size > maxVideoSizeBytes) {
+      setNotice("Video must be a .mov, .mp4, .m4v, or .webm file and 250 MB or smaller.");
       return;
     }
 
-    const formData = new FormData();
-    formData.set("video", file);
+    setVideoUploadStatus(`Preparing upload for ${file.name}...`);
 
     const response = await fetch("/api/admin/videos/upload", {
-      body: formData,
+      body: JSON.stringify({
+        contentType: file.type || getVideoContentType(file.name),
+        fileName: file.name,
+        fileSize: file.size,
+      }),
+      headers: { "Content-Type": "application/json" },
       method: "POST",
     });
 
@@ -246,19 +253,49 @@ export function AdminInventoryManager({
         error?: string;
       } | null;
       setNotice(result?.error ?? "Video upload failed.");
+      setVideoUploadStatus("");
       return;
     }
 
     const result = (await response.json()) as {
+      contentType?: string;
+      signedUrl?: string;
       videoUrl?: string;
       mode?: string;
     };
 
+    if (result.signedUrl) {
+      setVideoUploadStatus("Uploading video to Supabase...");
+      const uploadForm = new FormData();
+      uploadForm.append("cacheControl", "3600");
+      uploadForm.append("", file);
+      const uploadResponse = await fetch(result.signedUrl, {
+        body: uploadForm,
+        headers: { "x-upsert": "false" },
+        method: "PUT",
+      });
+
+      if (!uploadResponse.ok) {
+        setNotice("Video upload failed while sending the file to Supabase.");
+        setVideoUploadStatus("");
+        return;
+      }
+    }
+
     if (result.videoUrl) {
       updateVideo(id, { videoUrl: result.videoUrl });
-      setNotice(
-        `Video uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}.`,
+      window.localStorage.setItem(
+        videoStorageKey,
+        JSON.stringify(
+          videos.map((video) =>
+            video.id === id ? { ...video, videoUrl: result.videoUrl ?? "" } : video,
+          ),
+        ),
       );
+      setNotice(
+        `Video uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
+      );
+      setVideoUploadStatus("Upload complete. Click Save Videos to publish.");
     }
   }
 
@@ -429,6 +466,35 @@ export function AdminInventoryManager({
         : "Draft saved locally. Add Supabase env vars for remote persistence.",
     );
     setSaving(false);
+  }
+
+  async function saveVideosOnly() {
+    setVideoSaving(true);
+    window.localStorage.setItem(videoStorageKey, JSON.stringify(videos));
+
+    const response = await fetch("/api/admin/videos", {
+      body: JSON.stringify({ videos }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Video save failed.");
+      setVideoSaving(false);
+      return;
+    }
+
+    const result = (await response.json()) as { mode?: string; count?: number };
+    setNotice(
+      result.mode === "supabase"
+        ? `Saved ${result.count ?? videos.length} homepage videos to Supabase.`
+        : "Videos saved locally. Add Supabase env vars for remote persistence.",
+    );
+    setVideoUploadStatus("");
+    setVideoSaving(false);
   }
 
   function resetDraft() {
@@ -892,10 +958,24 @@ export function AdminInventoryManager({
             <p className="eyebrow">Social media</p>
             <h3>Homepage videos</h3>
           </div>
-          <button className="button secondary" onClick={addVideo} type="button">
-            Add Video
-          </button>
+          <div className="admin-actions">
+            <button className="button secondary" onClick={addVideo} type="button">
+              Add Video
+            </button>
+            <button
+              className="button primary"
+              disabled={videoSaving}
+              onClick={saveVideosOnly}
+              type="button"
+            >
+              {videoSaving ? "Saving..." : "Save Videos"}
+            </button>
+          </div>
         </div>
+        <p className="admin-video-help">
+          Upload a .mov/.mp4 file or paste a TikTok/YouTube URL. Click Save
+          Videos after changes so the homepage can show it.
+        </p>
 
         <div className="video-admin-workspace">
           <div className="admin-list video-list" aria-label="Homepage videos">
@@ -922,23 +1002,21 @@ export function AdminInventoryManager({
             <form className="admin-editor video-editor">
               <div className="video-upload-card">
                 {selectedVideo.videoUrl ? (
-                  <video
-                    controls
-                    playsInline
-                    preload="metadata"
-                    src={selectedVideo.videoUrl}
-                  />
+                  <SiteVideoFrame video={selectedVideo} />
                 ) : (
                   <div className="video-upload-empty">
                     <span>Deals with Dennis</span>
                     <p>Upload a short walk-around or paste a direct video URL.</p>
                   </div>
                 )}
+                {videoUploadStatus ? (
+                  <p className="video-upload-status">{videoUploadStatus}</p>
+                ) : null}
                 <div className="admin-actions">
                   <label className="button secondary file-button">
                     Upload Video
                     <input
-                      accept="video/*"
+                      accept="video/*,.mov,.mp4,.m4v,.webm"
                       onChange={(event) => uploadSiteVideo(selectedVideo.id, event)}
                       type="file"
                     />
@@ -980,7 +1058,7 @@ export function AdminInventoryManager({
                   </select>
                 </label>
                 <label className="editor-wide">
-                  <span>Direct Video URL</span>
+                  <span>Video URL</span>
                   <input
                     value={selectedVideo.videoUrl}
                     onChange={(event) =>
@@ -988,8 +1066,8 @@ export function AdminInventoryManager({
                         videoUrl: event.target.value,
                       })
                     }
-                    placeholder="https://.../video.mp4"
-                    type="url"
+                    placeholder="Paste a TikTok/YouTube link or direct .mp4/.mov URL"
+                    type="text"
                   />
                 </label>
                 <label className="editor-wide">
@@ -1213,4 +1291,34 @@ function normalizeClaimStatus(value: unknown): ClaimStatus {
   }
 
   return "unknown";
+}
+
+function getVideoContentType(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+
+  if (lowerName.endsWith(".webm")) {
+    return "video/webm";
+  }
+
+  if (lowerName.endsWith(".m4v")) {
+    return "video/x-m4v";
+  }
+
+  return "video/mp4";
+}
+
+function isAllowedVideoFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+
+  return (
+    file.type.startsWith("video/") ||
+    lowerName.endsWith(".mov") ||
+    lowerName.endsWith(".mp4") ||
+    lowerName.endsWith(".m4v") ||
+    lowerName.endsWith(".webm")
+  );
 }

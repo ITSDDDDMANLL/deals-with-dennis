@@ -1105,10 +1105,12 @@ h3 {
   padding: 0;
 }
 
-.video-panel video {
+.video-panel video,
+.video-panel iframe {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
+  border: 0;
   background: var(--ink);
   object-fit: cover;
 }
@@ -1457,6 +1459,21 @@ h3 {
   padding: 18px;
 }
 
+.admin-video-help,
+.video-upload-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.video-upload-status {
+  border-left: 4px solid var(--gold);
+  background: rgba(217, 164, 65, 0.12);
+  padding: 10px 12px;
+  color: var(--ink);
+}
+
 .video-admin-workspace {
   display: grid;
   grid-template-columns: minmax(220px, 0.32fr) minmax(0, 1fr);
@@ -1482,6 +1499,7 @@ h3 {
 }
 
 .video-upload-card video,
+.video-upload-card iframe,
 .video-upload-empty {
   width: 100%;
   overflow: hidden;
@@ -1494,6 +1512,10 @@ h3 {
 .video-upload-card video {
   display: block;
   object-fit: cover;
+}
+
+.video-upload-card iframe {
+  display: block;
 }
 
 .video-upload-empty {
