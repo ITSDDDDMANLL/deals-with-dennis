@@ -44,7 +44,7 @@ export async function getInventoryVehicles(
     .order("created_at", { ascending: false });
 
   if (!options.includeHidden) {
-    query = query.eq("is_featured", true).eq("status", "available");
+    query = query.eq("is_featured", true);
   }
 
   const { data, error } = await query;
@@ -105,6 +105,8 @@ function rowToVehicle(row: InventoryRow): Vehicle {
       : Array.isArray(raw.imageUrls)
         ? raw.imageUrls.map(String)
         : [],
+    details: String(raw.details ?? ""),
+    highlights: String(raw.highlights ?? ""),
   };
 }
 

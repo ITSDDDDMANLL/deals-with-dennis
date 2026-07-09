@@ -45,6 +45,8 @@ export function InventoryBrowser({
   const [sort, setSort] = useState<InventorySort>("featured");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [search, setSearch] = useState("");
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectFilters, setSelectFilters] = useState<SelectFilters>({
     bodyStyle: "all",
@@ -144,6 +146,16 @@ export function InventoryBrowser({
       transmission: "all",
       year: "all",
     });
+  }
+
+  function openVehicle(vehicle: Vehicle) {
+    setSelectedVehicle(vehicle);
+    setSelectedImageIndex(0);
+  }
+
+  function closeVehicle() {
+    setSelectedVehicle(null);
+    setSelectedImageIndex(0);
   }
 
   return (
@@ -305,13 +317,30 @@ export function InventoryBrowser({
       ) : (
         <div className={`vehicle-grid ${viewMode === "list" ? "list-view" : ""}`}>
           {filteredVehicles.map((vehicle) => (
-            <article className="vehicle-card" key={vehicle.id}>
+            <article
+              className="vehicle-card vehicle-card-clickable"
+              key={vehicle.id}
+              onClick={() => openVehicle(vehicle)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openVehicle(vehicle);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
               <div className="vehicle-photo" aria-hidden="true">
                 {vehicle.imageUrls?.[0] ? (
                   <img src={vehicle.imageUrls[0]} alt="" />
                 ) : (
                   <span>{vehicle.make}</span>
                 )}
+                {vehicle.status !== "available" ? (
+                  <div className={`vehicle-photo-status ${vehicle.status}`}>
+                    {vehicle.status === "incoming" ? "Incoming" : "Sold"}
+                  </div>
+                ) : null}
               </div>
               <div className="vehicle-body">
                 <div className="vehicle-summary">
@@ -374,6 +403,159 @@ export function InventoryBrowser({
           ))}
         </div>
       )}
+
+      {selectedVehicle ? (
+        <VehicleDetailModal
+          imageIndex={selectedImageIndex}
+          onClose={closeVehicle}
+          onImageIndexChange={setSelectedImageIndex}
+          vehicle={selectedVehicle}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function VehicleDetailModal({
+  imageIndex,
+  onClose,
+  onImageIndexChange,
+  vehicle,
+}: {
+  imageIndex: number;
+  onClose: () => void;
+  onImageIndexChange: (index: number) => void;
+  vehicle: Vehicle;
+}) {
+  const images = vehicle.imageUrls?.length ? vehicle.imageUrls : [];
+  const activeImage = images[imageIndex];
+  const highlights = splitContentLines(vehicle.highlights);
+  const details = splitContentLines(vehicle.details);
+
+  return (
+    <div
+      aria-label={`${vehicle.year} ${vehicle.make} ${vehicle.model} details`}
+      aria-modal="true"
+      className="vehicle-modal"
+      role="dialog"
+    >
+      <div className="vehicle-modal-backdrop" onClick={onClose} />
+      <div className="vehicle-modal-panel">
+        <button
+          aria-label="Close vehicle details"
+          className="vehicle-modal-close"
+          onClick={onClose}
+          type="button"
+        >
+          ×
+        </button>
+
+        <div className="vehicle-modal-gallery">
+          <div className="vehicle-modal-main-image">
+            {activeImage ? (
+              <img
+                alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                src={activeImage}
+              />
+            ) : (
+              <span>{vehicle.make}</span>
+            )}
+            {vehicle.status !== "available" ? (
+              <div className={`vehicle-photo-status ${vehicle.status}`}>
+                {vehicle.status === "incoming" ? "Incoming" : "Sold"}
+              </div>
+            ) : null}
+          </div>
+          {images.length > 1 ? (
+            <div className="vehicle-modal-thumbs" aria-label="Vehicle photos">
+              {images.map((imageUrl, index) => (
+                <button
+                  aria-label={`Show photo ${index + 1}`}
+                  aria-pressed={index === imageIndex}
+                  className={index === imageIndex ? "active" : ""}
+                  key={`${imageUrl}-${index}`}
+                  onClick={() => onImageIndexChange(index)}
+                  type="button"
+                >
+                  <img alt="" src={imageUrl} />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="vehicle-modal-content">
+          <div className="vehicle-modal-title">
+            <div>
+              <div className="vehicle-topline">
+                <span className={`status ${vehicle.status}`}>{vehicle.status}</span>
+                <span className="type-label">{vehicle.type}</span>
+                {vehicle.stockNumber ? (
+                  <span className="stock-label">Stock {vehicle.stockNumber}</span>
+                ) : null}
+              </div>
+              <h2>
+                {vehicle.year} {vehicle.make} {vehicle.model}
+              </h2>
+              <p>{vehicle.trim || "Trim details coming soon"}</p>
+            </div>
+            <strong>{vehicle.priceLabel}</strong>
+          </div>
+
+          {highlights.length ? (
+            <section className="vehicle-modal-section">
+              <h3>Highlights</h3>
+              <ul className="vehicle-highlights">
+                {highlights.map((highlight) => (
+                  <li key={highlight}>{highlight}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="vehicle-modal-section">
+            <h3>Details</h3>
+            {details.length ? (
+              details.map((line) => <p key={line}>{line}</p>)
+            ) : (
+              <p>Message me to confirm details, availability, and next steps.</p>
+            )}
+          </section>
+
+          <dl className="vehicle-modal-specs">
+            <div>
+              <dt>Mileage</dt>
+              <dd>{vehicle.mileageLabel}</dd>
+            </div>
+            <div>
+              <dt>Class</dt>
+              <dd>{vehicle.className || "Class TBD"}</dd>
+            </div>
+            <div>
+              <dt>Color</dt>
+              <dd>{vehicle.exteriorColor}</dd>
+            </div>
+            <div>
+              <dt>Drivetrain</dt>
+              <dd>{vehicle.drivetrain || "TBD"}</dd>
+            </div>
+            <div>
+              <dt>Transmission</dt>
+              <dd>{inferTransmission(vehicle) || "TBD"}</dd>
+            </div>
+            <div>
+              <dt>Fuel</dt>
+              <dd>{inferFuel(vehicle) || "TBD"}</dd>
+            </div>
+            {vehicle.vin ? (
+              <div>
+                <dt>VIN</dt>
+                <dd>{vehicle.vin}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      </div>
     </div>
   );
 }
@@ -490,10 +672,19 @@ function searchVehicle(vehicle: Vehicle, search: string) {
     vehicle.exteriorColor,
     vehicle.priceLabel,
     vehicle.mileageLabel,
+    vehicle.highlights,
+    vehicle.details,
   ]
     .join(" ")
     .toLowerCase()
     .includes(needle);
+}
+
+function splitContentLines(value?: string) {
+  return String(value ?? "")
+    .split(/\r?\n|;/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function inferFuel(vehicle: Vehicle) {

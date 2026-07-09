@@ -8,7 +8,6 @@ export default async function InventoryPage() {
   const vehicles = await getInventoryVehicles(getFeaturedVehicles(), {
     includeHidden: true,
   });
-  const publicVehicles = vehicles.filter((vehicle) => vehicle.status !== "sold");
 
   return (
     <main className="inventory-page">
@@ -39,7 +38,7 @@ export default async function InventoryPage() {
           </p>
         </section>
 
-        <InventoryBrowser vehicles={publicVehicles} showAdvancedControls />
+        <InventoryBrowser vehicles={vehicles} showAdvancedControls />
       </div>
     </main>
   );

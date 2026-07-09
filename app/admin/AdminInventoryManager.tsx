@@ -31,6 +31,8 @@ const blankVehicle: EditableVehicle = {
   claimStatus: "unknown",
   isFeatured: true,
   imageUrls: [],
+  details: "",
+  highlights: "",
 };
 
 const editableFields = [
@@ -697,6 +699,34 @@ export function AdminInventoryManager({
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
+              </label>
+
+              <label className="editor-wide">
+                <span>Highlights</span>
+                <textarea
+                  value={selectedVehicle.highlights ?? ""}
+                  onChange={(event) =>
+                    updateVehicle(selectedVehicle.id, {
+                      highlights: event.target.value,
+                    })
+                  }
+                  placeholder="One highlight per line, such as No accidents, Local BC car, One owner"
+                  rows={4}
+                />
+              </label>
+
+              <label className="editor-wide">
+                <span>Details</span>
+                <textarea
+                  value={selectedVehicle.details ?? ""}
+                  onChange={(event) =>
+                    updateVehicle(selectedVehicle.id, {
+                      details: event.target.value,
+                    })
+                  }
+                  placeholder="Describe condition, packages, service history, inspection notes, or anything customers should know."
+                  rows={7}
+                />
               </label>
             </div>
 
