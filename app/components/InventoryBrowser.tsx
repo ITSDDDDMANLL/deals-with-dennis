@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
+import { ContactForm } from "./ContactForm";
 
 type InventoryFilter = "all" | VehicleType;
 type ClaimFilter = "all" | ClaimStatus;
@@ -405,6 +406,8 @@ function VehicleDetailModal({
   const activeImage = images[imageIndex];
   const highlights = splitContentLines(vehicle.highlights);
   const details = splitContentLines(vehicle.details);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const contactPrefill = getVehicleContactPrefill(vehicle);
 
   return (
     <div
@@ -480,7 +483,7 @@ function VehicleDetailModal({
               </p>
               <button
                 className="button primary"
-                onClick={() => contactDennis(vehicle, onClose)}
+                onClick={() => setShowContactForm(true)}
                 type="button"
               >
                 Contact Dennis
@@ -547,6 +550,31 @@ function VehicleDetailModal({
             ) : null}
           </dl>
         </div>
+
+        {showContactForm ? (
+          <div className="vehicle-contact-panel">
+            <div className="vehicle-contact-card">
+              <button
+                aria-label="Close contact form"
+                className="vehicle-modal-close"
+                onClick={() => setShowContactForm(false)}
+                type="button"
+              >
+                ×
+              </button>
+              <div className="vehicle-contact-head">
+                <p className="eyebrow">Contact Dennis</p>
+                <h3>
+                  Ask about {vehicle.year} {vehicle.make} {vehicle.model}
+                </h3>
+              </div>
+              <ContactForm
+                initialMessage={contactPrefill.message}
+                initialVehicleType={contactPrefill.vehicleType}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -565,7 +593,7 @@ function VehicleCardTags({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
-function contactDennis(vehicle: Vehicle, onClose: () => void) {
+function getVehicleContactPrefill(vehicle: Vehicle) {
   const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
   const lines = [
     `I am interested in the ${vehicleName}${vehicle.trim ? ` ${vehicle.trim}` : ""}.`,
@@ -574,32 +602,10 @@ function contactDennis(vehicle: Vehicle, onClose: () => void) {
     `Price: ${vehicle.priceLabel}`,
   ].filter(Boolean);
 
-  window.dispatchEvent(
-    new CustomEvent("deals-contact-vehicle", {
-      detail: {
-        message: lines.join("\n"),
-        vehicleType: vehicle.type,
-      },
-    }),
-  );
-  window.sessionStorage.setItem(
-    "deals-contact-prefill",
-    JSON.stringify({
-      message: lines.join("\n"),
-      vehicleType: vehicle.type,
-    }),
-  );
-  onClose();
-  window.setTimeout(() => {
-    const contactSection = document.getElementById("contact");
-
-    if (contactSection) {
-      contactSection.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
-
-    window.location.href = "/#contact";
-  }, 50);
+  return {
+    message: lines.join("\n"),
+    vehicleType: vehicle.type,
+  };
 }
 
 function FilterSelect({

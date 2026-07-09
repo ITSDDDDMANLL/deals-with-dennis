@@ -4,12 +4,27 @@ import { FormEvent, useEffect, useState } from "react";
 
 type SubmitState = "idle" | "sending" | "sent" | "error";
 
-export function ContactForm() {
+export function ContactForm({
+  initialMessage = "",
+  initialVehicleType = "",
+}: {
+  initialMessage?: string;
+  initialVehicleType?: string;
+}) {
   const [state, setState] = useState<SubmitState>("idle");
-  const [vehicleType, setVehicleType] = useState("");
-  const [message, setMessage] = useState("");
+  const [vehicleType, setVehicleType] = useState(initialVehicleType);
+  const [message, setMessage] = useState(initialMessage);
 
   useEffect(() => {
+    setVehicleType(initialVehicleType);
+    setMessage(initialMessage);
+  }, [initialMessage, initialVehicleType]);
+
+  useEffect(() => {
+    if (initialMessage || initialVehicleType) {
+      return;
+    }
+
     const savedPrefill = window.sessionStorage.getItem("deals-contact-prefill");
 
     if (savedPrefill) {
@@ -41,7 +56,7 @@ export function ContactForm() {
     return () => {
       window.removeEventListener("deals-contact-vehicle", handleVehicleContact);
     };
-  }, []);
+  }, [initialMessage, initialVehicleType]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
