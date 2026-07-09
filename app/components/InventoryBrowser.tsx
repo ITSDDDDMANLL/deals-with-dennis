@@ -502,15 +502,6 @@ function VehicleDetailModal({
             </section>
           ) : null}
 
-          <section className="vehicle-modal-section">
-            <h3>Details</h3>
-            {details.length ? (
-              details.map((line) => <p key={line}>{line}</p>)
-            ) : (
-              <p>Message me to confirm details, availability, and next steps.</p>
-            )}
-          </section>
-
           <dl className="vehicle-modal-specs">
             {vehicle.stockNumber ? (
               <div>
@@ -549,6 +540,15 @@ function VehicleDetailModal({
               </div>
             ) : null}
           </dl>
+
+          <section className="vehicle-modal-section">
+            <h3>Details</h3>
+            {details.length ? (
+              details.map((line) => <p key={line}>{line}</p>)
+            ) : (
+              <p>Message me to confirm details, availability, and next steps.</p>
+            )}
+          </section>
         </div>
 
         {showContactForm ? (
