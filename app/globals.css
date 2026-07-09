@@ -393,7 +393,7 @@ h3 {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(116px, 1fr)) minmax(260px, 1.6fr);
+  grid-template-columns: repeat(7, minmax(116px, 1fr));
   gap: 8px;
   align-items: stretch;
 }
@@ -419,10 +419,10 @@ h3 {
 .sort-control select {
   width: 100%;
   min-height: 44px;
-  border: 1px solid transparent;
+  border: 1px solid rgba(168, 54, 22, 0.14);
   border-radius: 0;
-  background: #e9eaec;
-  color: #313b42;
+  background: #fff0c5;
+  color: #2f2b25;
   padding: 0 13px;
   font-weight: 850;
 }
@@ -437,7 +437,7 @@ h3 {
 }
 
 .filter-search input {
-  background: #fff;
+  background: #fffdf8;
   font-weight: 700;
 }
 
@@ -445,9 +445,14 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 12px;
   border-top: 1px solid var(--line);
   padding-top: 10px;
+}
+
+.toolbar-search {
+  flex: 1 1 380px;
+  max-width: 520px;
 }
 
 .text-button {
@@ -456,7 +461,7 @@ h3 {
   color: var(--muted);
   cursor: pointer;
   font-weight: 900;
-  margin-right: auto;
+  margin-left: auto;
 }
 
 .view-setting {
@@ -474,7 +479,7 @@ h3 {
   min-height: 40px;
   place-items: center;
   border: 1px solid var(--line);
-  background: #fff;
+  background: #fffdf8;
   color: var(--muted);
   cursor: pointer;
   padding: 0;
@@ -484,7 +489,7 @@ h3 {
 }
 
 .view-setting button.active {
-  background: #dfe1e3;
+  background: var(--gold);
   color: var(--ink);
 }
 

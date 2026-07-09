@@ -207,15 +207,6 @@ export function InventoryBrowser({
                 <option value="ask">Ask for pricing</option>
               </select>
             </label>
-            <label className="filter-search">
-              <span>Search Inventory</span>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search Inventory"
-                type="search"
-              />
-            </label>
             <FilterSelect
               label="Condition"
               value={selectFilters.condition}
@@ -263,6 +254,15 @@ export function InventoryBrowser({
           </div>
 
           <div className="inventory-toolbar">
+            <label className="filter-search toolbar-search">
+              <span>Search Inventory</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search Inventory"
+                type="search"
+              />
+            </label>
             <button className="text-button" onClick={resetFilters} type="button">
               Reset Filters
             </button>
