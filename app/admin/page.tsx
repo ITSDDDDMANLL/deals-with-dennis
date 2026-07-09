@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { Metadata } from "next";
 import { AdminInventoryManager } from "./AdminInventoryManager";
 import { AdminLogin } from "./AdminLogin";
 import { getFeaturedVehicles } from "../data/inventory";
@@ -6,6 +7,14 @@ import { getAdminCookieName, isAdminSessionValueValid } from "../../lib/admin-au
 import { getInventoryVehicles } from "../../lib/inventory-store";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: {
+    follow: false,
+    index: false,
+  },
+  title: "Inventory Admin · Deals with Dennis",
+};
 
 export default async function AdminPage() {
   const cookieStore = await cookies();

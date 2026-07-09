@@ -15,12 +15,11 @@ export default async function InventoryPage() {
       <header className="site-header">
         <nav className="nav-shell" aria-label="Inventory navigation">
           <a className="brand" href="/">
-            Deals with Dennis <span>Full Inventory</span>
+            Deals with Dennis <span>Inventory</span>
           </a>
           <div className="nav-links">
             <a href="/">Featured</a>
-            <a href="/inventory">Full Inventory</a>
-            <a href="/admin">Admin</a>
+            <a href="/inventory">Inventory</a>
             <a className="nav-cta" href="/#contact">
               Book a Visit
             </a>
@@ -32,11 +31,11 @@ export default async function InventoryPage() {
         <section className="inventory-page-head">
           <div>
             <p className="eyebrow">Deals with Dennis</p>
-            <h1>Full Inventory</h1>
+            <h1>Inventory</h1>
           </div>
           <p>
-            Filter by new, used, and claim status. Sort the list before you
-            message me to confirm availability or book a test drive.
+            Filter by year, make, model, body style, price, claim status, and
+            more before you message me to confirm availability.
           </p>
         </section>
 

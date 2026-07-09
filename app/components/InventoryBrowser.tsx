@@ -5,7 +5,29 @@ import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
 
 type InventoryFilter = "all" | VehicleType;
 type ClaimFilter = "all" | ClaimStatus;
-type InventorySort = "featured" | "price-low" | "price-high" | "year-new" | "mileage-low";
+type InventorySort =
+  | "featured"
+  | "price-low"
+  | "price-high"
+  | "year-new"
+  | "mileage-low";
+type PriceFilter = "all" | "under-25" | "25-40" | "40-60" | "60-plus" | "ask";
+type ViewMode = "grid" | "list";
+type SelectFilterKey =
+  | "year"
+  | "make"
+  | "model"
+  | "trim"
+  | "bodyStyle"
+  | "condition"
+  | "location"
+  | "colour"
+  | "drivetrain"
+  | "fuel"
+  | "transmission"
+  | "claim";
+
+type SelectFilters = Record<SelectFilterKey, string>;
 
 const claimStatusLabels: Record<ClaimStatus, string> = {
   unknown: "Claim status TBD",
@@ -22,17 +44,71 @@ export function InventoryBrowser({
   showAdvancedControls?: boolean;
 }) {
   const [filter, setFilter] = useState<InventoryFilter>("all");
-  const [claimFilter, setClaimFilter] = useState<ClaimFilter>("all");
   const [sort, setSort] = useState<InventorySort>("featured");
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [selectFilters, setSelectFilters] = useState<SelectFilters>({
+    bodyStyle: "all",
+    claim: "all",
+    colour: "all",
+    condition: "all",
+    drivetrain: "all",
+    fuel: "all",
+    location: "all",
+    make: "all",
+    model: "all",
+    transmission: "all",
+    trim: "all",
+    year: "all",
+  });
+
+  const filterOptions = useMemo(
+    () => ({
+      bodyStyle: uniqueValues(vehicles.map((vehicle) => vehicle.className)),
+      colour: uniqueValues(vehicles.map((vehicle) => vehicle.exteriorColor)),
+      drivetrain: uniqueValues(vehicles.map((vehicle) => vehicle.drivetrain)),
+      fuel: uniqueValues(vehicles.map(inferFuel)),
+      location: ["Richmond"],
+      make: uniqueValues(vehicles.map((vehicle) => vehicle.make)),
+      model: uniqueValues(vehicles.map((vehicle) => vehicle.model)),
+      transmission: uniqueValues(vehicles.map(inferTransmission)),
+      trim: uniqueValues(vehicles.map((vehicle) => vehicle.trim)),
+      year: uniqueValues(vehicles.map((vehicle) => String(vehicle.year))),
+    }),
+    [vehicles],
+  );
 
   const filteredVehicles = useMemo(() => {
     const next = vehicles.filter((vehicle) => {
-      const typeMatches = filter === "all" || vehicle.type === filter;
+      const condition = showAdvancedControls
+        ? (selectFilters.condition as InventoryFilter)
+        : filter;
+      const typeMatches = condition === "all" || vehicle.type === condition;
+      const searchMatches = searchVehicle(vehicle, search);
+      const priceMatches = matchesPriceFilter(vehicle.priceLabel, priceFilter);
       const claimMatches =
-        claimFilter === "all" ||
-        (vehicle.claimStatus ?? "unknown") === claimFilter;
+        selectFilters.claim === "all" ||
+        (vehicle.claimStatus ?? "unknown") === selectFilters.claim;
+      const selectMatches =
+        matchesSelect(selectFilters.year, String(vehicle.year)) &&
+        matchesSelect(selectFilters.make, vehicle.make) &&
+        matchesSelect(selectFilters.model, vehicle.model) &&
+        matchesSelect(selectFilters.trim, vehicle.trim) &&
+        matchesSelect(selectFilters.bodyStyle, vehicle.className) &&
+        matchesSelect(selectFilters.location, "Richmond") &&
+        matchesSelect(selectFilters.colour, vehicle.exteriorColor) &&
+        matchesSelect(selectFilters.drivetrain, vehicle.drivetrain) &&
+        matchesSelect(selectFilters.fuel, inferFuel(vehicle)) &&
+        matchesSelect(selectFilters.transmission, inferTransmission(vehicle));
 
-      return typeMatches && claimMatches;
+      return (
+        typeMatches &&
+        claimMatches &&
+        priceMatches &&
+        searchMatches &&
+        selectMatches
+      );
     });
 
     return next.sort((a, b) => {
@@ -54,42 +130,163 @@ export function InventoryBrowser({
 
       return Number(b.isFeatured === true) - Number(a.isFeatured === true);
     });
-  }, [claimFilter, filter, sort, vehicles]);
+  }, [filter, priceFilter, search, selectFilters, showAdvancedControls, sort, vehicles]);
+
+  function updateSelectFilter(key: SelectFilterKey, value: string) {
+    setSelectFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetFilters() {
+    setFilter("all");
+    setPriceFilter("all");
+    setSearch("");
+    setSelectFilters({
+      bodyStyle: "all",
+      claim: "all",
+      colour: "all",
+      condition: "all",
+      drivetrain: "all",
+      fuel: "all",
+      location: "all",
+      make: "all",
+      model: "all",
+      transmission: "all",
+      trim: "all",
+      year: "all",
+    });
+  }
 
   return (
     <div className="inventory-browser">
-      <div className="inventory-controls">
-        <div className="segmented-control" aria-label="Filter inventory">
-          {(["all", "new", "used"] as const).map((option) => (
-            <button
-              aria-pressed={filter === option}
-              className={filter === option ? "active" : ""}
-              key={option}
-              onClick={() => setFilter(option)}
-              type="button"
-            >
-              {option === "all" ? "All" : option === "new" ? "New" : "Used"}
-            </button>
-          ))}
-        </div>
-
-        {showAdvancedControls ? (
-          <div className="inventory-selectors">
-            <label>
-              <span>Claim</span>
+      {showAdvancedControls ? (
+        <div className="inventory-filter-panel">
+          <div className="filter-grid">
+            <FilterSelect
+              label="Year"
+              value={selectFilters.year}
+              options={filterOptions.year}
+              onChange={(value) => updateSelectFilter("year", value)}
+            />
+            <FilterSelect
+              label="Make"
+              value={selectFilters.make}
+              options={filterOptions.make}
+              onChange={(value) => updateSelectFilter("make", value)}
+            />
+            <FilterSelect
+              label="Model"
+              value={selectFilters.model}
+              options={filterOptions.model}
+              onChange={(value) => updateSelectFilter("model", value)}
+            />
+            <FilterSelect
+              label="Trim"
+              value={selectFilters.trim}
+              options={filterOptions.trim}
+              onChange={(value) => updateSelectFilter("trim", value)}
+            />
+            <FilterSelect
+              label="Body Style"
+              value={selectFilters.bodyStyle}
+              options={filterOptions.bodyStyle}
+              onChange={(value) => updateSelectFilter("bodyStyle", value)}
+            />
+            <label className="filter-control">
+              <span>Price</span>
               <select
-                value={claimFilter}
-                onChange={(event) => setClaimFilter(event.target.value as ClaimFilter)}
+                value={priceFilter}
+                onChange={(event) =>
+                  setPriceFilter(event.target.value as PriceFilter)
+                }
               >
-                <option value="all">All claim status</option>
-                <option value="no-claim">No claim</option>
-                <option value="minor-claim">Minor claim</option>
-                <option value="claim-over-5k">Claim over $5k</option>
-                <option value="unknown">Not listed</option>
+                <option value="all">Any price</option>
+                <option value="under-25">Under $25k</option>
+                <option value="25-40">$25k - $40k</option>
+                <option value="40-60">$40k - $60k</option>
+                <option value="60-plus">$60k+</option>
+                <option value="ask">Ask for pricing</option>
               </select>
             </label>
-            <label>
-              <span>Sort</span>
+            <label className="filter-search">
+              <span>Search Inventory</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search Inventory"
+                type="search"
+              />
+            </label>
+            <FilterSelect
+              label="Condition"
+              value={selectFilters.condition}
+              options={["New", "Used"]}
+              onChange={(value) => updateSelectFilter("condition", value)}
+              values={["new", "used"]}
+            />
+            <FilterSelect
+              label="Location"
+              value={selectFilters.location}
+              options={filterOptions.location}
+              onChange={(value) => updateSelectFilter("location", value)}
+            />
+            <FilterSelect
+              label="Colour"
+              value={selectFilters.colour}
+              options={filterOptions.colour}
+              onChange={(value) => updateSelectFilter("colour", value)}
+            />
+            <FilterSelect
+              label="Drivetrain"
+              value={selectFilters.drivetrain}
+              options={filterOptions.drivetrain}
+              onChange={(value) => updateSelectFilter("drivetrain", value)}
+            />
+            <FilterSelect
+              label="Fuel"
+              value={selectFilters.fuel}
+              options={filterOptions.fuel}
+              onChange={(value) => updateSelectFilter("fuel", value)}
+            />
+            <FilterSelect
+              label="Transmission"
+              value={selectFilters.transmission}
+              options={filterOptions.transmission}
+              onChange={(value) => updateSelectFilter("transmission", value)}
+            />
+            <FilterSelect
+              label="Claim"
+              value={selectFilters.claim}
+              options={["No claim", "Minor claim", "Claim over $5k", "Not listed"]}
+              onChange={(value) => updateSelectFilter("claim", value)}
+              values={["no-claim", "minor-claim", "claim-over-5k", "unknown"]}
+            />
+          </div>
+
+          <div className="inventory-toolbar">
+            <button className="text-button" onClick={resetFilters} type="button">
+              Reset Filters
+            </button>
+            <div className="view-setting" aria-label="View setting">
+              <span>View Setting:</span>
+              <button
+                aria-pressed={viewMode === "list"}
+                className={viewMode === "list" ? "active" : ""}
+                onClick={() => setViewMode("list")}
+                type="button"
+              >
+                List
+              </button>
+              <button
+                aria-pressed={viewMode === "grid"}
+                className={viewMode === "grid" ? "active" : ""}
+                onClick={() => setViewMode("grid")}
+                type="button"
+              >
+                Grid
+              </button>
+            </div>
+            <label className="sort-control">
+              <span>Sort By</span>
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value as InventorySort)}
@@ -102,15 +299,31 @@ export function InventoryBrowser({
               </select>
             </label>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <div className="inventory-controls">
+          <div className="segmented-control" aria-label="Filter inventory">
+            {(["all", "new", "used"] as const).map((option) => (
+              <button
+                aria-pressed={filter === option}
+                className={filter === option ? "active" : ""}
+                key={option}
+                onClick={() => setFilter(option)}
+                type="button"
+              >
+                {option === "all" ? "All" : option === "new" ? "New" : "Used"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {filteredVehicles.length === 0 ? (
         <div className="empty-state">
           <p>No vehicles match this filter yet.</p>
         </div>
       ) : (
-        <div className="vehicle-grid">
+        <div className={`vehicle-grid ${viewMode === "list" ? "list-view" : ""}`}>
           {filteredVehicles.map((vehicle) => (
             <article className="vehicle-card" key={vehicle.id}>
               <div className="vehicle-photo" aria-hidden="true">
@@ -169,6 +382,34 @@ export function InventoryBrowser({
   );
 }
 
+function FilterSelect({
+  label,
+  onChange,
+  options,
+  value,
+  values,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: string[];
+  value: string;
+  values?: string[];
+}) {
+  return (
+    <label className="filter-control">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="all">{label}</option>
+        {options.map((option, index) => (
+          <option key={`${label}-${option}`} value={values?.[index] ?? option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function numberFromLabel(value: string) {
   const parsed = Number(value.replace(/[^0-9.]/g, ""));
 
@@ -177,4 +418,93 @@ function numberFromLabel(value: string) {
   }
 
   return parsed;
+}
+
+function uniqueValues(values: Array<string | number | null | undefined>) {
+  return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function matchesSelect(filterValue: string, vehicleValue?: string) {
+  return filterValue === "all" || filterValue === String(vehicleValue ?? "").trim();
+}
+
+function matchesPriceFilter(priceLabel: string, priceFilter: PriceFilter) {
+  if (priceFilter === "all") {
+    return true;
+  }
+
+  const lower = priceLabel.toLowerCase();
+
+  if (priceFilter === "ask") {
+    return lower.includes("ask") || !numberFromPrice(priceLabel);
+  }
+
+  const price = numberFromPrice(priceLabel);
+
+  if (!price) {
+    return false;
+  }
+
+  if (priceFilter === "under-25") {
+    return price < 25000;
+  }
+
+  if (priceFilter === "25-40") {
+    return price >= 25000 && price < 40000;
+  }
+
+  if (priceFilter === "40-60") {
+    return price >= 40000 && price < 60000;
+  }
+
+  return price >= 60000;
+}
+
+function numberFromPrice(value: string) {
+  const parsed = Number(value.replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function searchVehicle(vehicle: Vehicle, search: string) {
+  const needle = search.trim().toLowerCase();
+
+  if (!needle) {
+    return true;
+  }
+
+  return [
+    vehicle.year,
+    vehicle.make,
+    vehicle.model,
+    vehicle.trim,
+    vehicle.stockNumber,
+    vehicle.vin,
+    vehicle.className,
+    vehicle.exteriorColor,
+    vehicle.priceLabel,
+    vehicle.mileageLabel,
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(needle);
+}
+
+function inferFuel(vehicle: Vehicle) {
+  const haystack = `${vehicle.make} ${vehicle.model} ${vehicle.trim}`.toLowerCase();
+
+  if (haystack.includes("tesla") || haystack.includes("electric")) {
+    return "Electric";
+  }
+
+  if (haystack.includes("hybrid")) {
+    return "Hybrid";
+  }
+
+  return "";
+}
+
+function inferTransmission(_vehicle: Vehicle) {
+  return "";
 }

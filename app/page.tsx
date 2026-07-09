@@ -27,9 +27,8 @@ export default async function Home() {
           </a>
           <div className="nav-links">
             <a href="#inventory">Featured</a>
-            <a href="/inventory">Full Inventory</a>
+            <a href="/inventory">Inventory</a>
             <a href="#about">About</a>
-            <a href="/admin">Admin</a>
             <a className="nav-cta" href="#contact">
               Book a Visit
             </a>
@@ -65,7 +64,7 @@ export default async function Home() {
                 View Featured
               </a>
               <a className="button secondary" href="/inventory">
-                Full Inventory
+                Inventory
               </a>
               <a className="button secondary" href="#contact">
                 Contact Me
@@ -98,14 +97,14 @@ export default async function Home() {
               <h2>Featured Inventory</h2>
             </div>
             <p>
-              Hand-picked vehicles I want to highlight. Use the full inventory
-              page for every available listing.
+              Hand-picked vehicles I want to highlight. Use the inventory page
+              for every available listing.
             </p>
           </div>
           <InventoryBrowser vehicles={vehicles} />
           <div className="inventory-more">
             <a className="button secondary" href="/inventory">
-              View Full Inventory
+              View Inventory
             </a>
           </div>
         </section>
