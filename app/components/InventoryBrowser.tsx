@@ -272,17 +272,19 @@ export function InventoryBrowser({
                 aria-pressed={viewMode === "list"}
                 className={viewMode === "list" ? "active" : ""}
                 onClick={() => setViewMode("list")}
+                title="List view"
                 type="button"
               >
-                List
+                <span aria-hidden="true">☰</span>
               </button>
               <button
                 aria-pressed={viewMode === "grid"}
                 className={viewMode === "grid" ? "active" : ""}
                 onClick={() => setViewMode("grid")}
+                title="Grid view"
                 type="button"
               >
-                Grid
+                <span aria-hidden="true">▦</span>
               </button>
             </div>
             <label className="sort-control">
@@ -334,25 +336,29 @@ export function InventoryBrowser({
                 )}
               </div>
               <div className="vehicle-body">
-                <div className="vehicle-topline">
-                  <span className={`status ${vehicle.status}`}>
-                    {vehicle.status}
-                  </span>
-                  <span className="type-label">{vehicle.type}</span>
-                  {vehicle.stockNumber ? (
-                    <span className="stock-label">Stock {vehicle.stockNumber}</span>
-                  ) : null}
-                  {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
-                    <span className="claim-label">
-                      {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}
+                <div className="vehicle-summary">
+                  <div className="vehicle-topline">
+                    <span className={`status ${vehicle.status}`}>
+                      {vehicle.status}
                     </span>
-                  ) : null}
+                    <span className="type-label">{vehicle.type}</span>
+                    {vehicle.stockNumber ? (
+                      <span className="stock-label">
+                        Stock {vehicle.stockNumber}
+                      </span>
+                    ) : null}
+                    {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
+                      <span className="claim-label">
+                        {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}
+                      </span>
+                    ) : null}
+                  </div>
+                  <h3>
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                  </h3>
+                  <p>{vehicle.trim || "Trim details coming soon"}</p>
+                  <strong>{vehicle.priceLabel}</strong>
                 </div>
-                <h3>
-                  {vehicle.year} {vehicle.make} {vehicle.model}
-                </h3>
-                <p>{vehicle.trim || "Trim details coming soon"}</p>
-                <strong>{vehicle.priceLabel}</strong>
                 <dl className="vehicle-specs">
                   <div>
                     <dt>Mileage</dt>

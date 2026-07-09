@@ -11,7 +11,7 @@ export default async function InventoryPage() {
   const publicVehicles = vehicles.filter((vehicle) => vehicle.status !== "sold");
 
   return (
-    <main>
+    <main className="inventory-page">
       <header className="site-header">
         <nav className="nav-shell" aria-label="Inventory navigation">
           <a className="brand" href="/">
