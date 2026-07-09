@@ -49,7 +49,7 @@ export async function getInventoryVehicles(
 
   const { data, error } = await query;
 
-  if (error || !data?.length) {
+  if (error || !data) {
     return options.includeHidden
       ? fallbackVehicles
       : fallbackVehicles.filter((vehicle) => vehicle.isFeatured !== false);

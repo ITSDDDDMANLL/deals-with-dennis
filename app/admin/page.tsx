@@ -54,8 +54,8 @@ export default async function AdminPage() {
                 <h1>Inventory management</h1>
               </div>
               <p>
-                Manage the vehicles that should appear on the public website.
-                Changes save to Supabase when environment variables are set.
+                Manage the Supabase inventory that powers the public website.
+                Vehicle changes and homepage videos are saved separately.
               </p>
             </section>
 

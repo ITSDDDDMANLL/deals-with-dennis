@@ -9,15 +9,13 @@ type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
 };
 
-const storageKey = "deals-with-dennis-admin-inventory";
-const videoStorageKey = "deals-with-dennis-admin-videos";
 const maxVehicleImages = 20;
 const maxImageSizeBytes = 2_500_000;
 const maxVideoSizeBytes = 250_000_000;
 const maxThumbnailSizeBytes = 2_500_000;
 
 const blankVehicle: EditableVehicle = {
-  id: "draft-new-vehicle",
+  id: "new-vehicle",
   type: "used",
   year: new Date().getFullYear(),
   make: "",
@@ -66,7 +64,7 @@ const transmissionOptions = ["Manual", "Auto"];
 const fuelOptions = ["Diesel", "Gasoline", "Hybrid", "EV", "PHEV"];
 
 const blankVideo: SiteVideo = {
-  id: "draft-new-video",
+  id: "new-video",
   title: "",
   description: "",
   videoUrl: "",
@@ -109,30 +107,6 @@ export function AdminInventoryManager({
   useEffect(() => {
     void loadInventory();
     void loadVideos();
-
-    const saved = window.localStorage.getItem(storageKey);
-
-    if (saved && !initialVehicles.length) {
-      try {
-        const parsed = JSON.parse(saved) as EditableVehicle[];
-        setVehicles(parsed);
-        setSelectedId(parsed[0]?.id ?? "");
-      } catch {
-        setNotice("Saved draft could not be loaded.");
-      }
-    }
-
-    const savedVideos = window.localStorage.getItem(videoStorageKey);
-
-    if (savedVideos && !initialVideos.length) {
-      try {
-        const parsed = JSON.parse(savedVideos) as SiteVideo[];
-        setVideos(parsed);
-        setSelectedVideoId(parsed[0]?.id ?? "");
-      } catch {
-        setNotice("Saved video draft could not be loaded.");
-      }
-    }
   }, []);
 
   const selectedVehicle = useMemo(
@@ -286,14 +260,6 @@ export function AdminInventoryManager({
 
     if (result.videoUrl) {
       updateVideo(id, { videoUrl: result.videoUrl });
-      window.localStorage.setItem(
-        videoStorageKey,
-        JSON.stringify(
-          videos.map((video) =>
-            video.id === id ? { ...video, videoUrl: result.videoUrl ?? "" } : video,
-          ),
-        ),
-      );
       setNotice(
         `Video uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
       );
@@ -350,14 +316,6 @@ export function AdminInventoryManager({
     }
 
     updateVideo(id, { thumbnailUrl });
-    window.localStorage.setItem(
-      videoStorageKey,
-      JSON.stringify(
-        videos.map((video) =>
-          video.id === id ? { ...video, thumbnailUrl } : video,
-        ),
-      ),
-    );
     setNotice(
       `Thumbnail uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
     );
@@ -471,7 +429,6 @@ export function AdminInventoryManager({
         })),
       );
       setSelectedId(data.vehicles[0].id);
-      window.localStorage.removeItem(storageKey);
     }
   }
 
@@ -487,56 +444,45 @@ export function AdminInventoryManager({
     if (data.videos?.length) {
       setVideos(data.videos);
       setSelectedVideoId(data.videos[0].id);
-      window.localStorage.removeItem(videoStorageKey);
     }
   }
 
-  async function saveDraft() {
+  async function saveVehiclesOnly() {
     setSaving(true);
-    window.localStorage.setItem(storageKey, JSON.stringify(vehicles));
-    window.localStorage.setItem(videoStorageKey, JSON.stringify(videos));
 
-    const [inventoryResponse, videosResponse] = await Promise.all([
-      fetch("/api/admin/inventory", {
-        body: JSON.stringify({ vehicles }),
-        headers: { "Content-Type": "application/json" },
-        method: "PUT",
-      }),
-      fetch("/api/admin/videos", {
-        body: JSON.stringify({ videos }),
-        headers: { "Content-Type": "application/json" },
-        method: "PUT",
-      }),
-    ]);
+    const inventoryResponse = await fetch("/api/admin/inventory", {
+      body: JSON.stringify({ vehicles }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    });
 
-    if (!inventoryResponse.ok || !videosResponse.ok) {
-      setNotice("Draft saved locally, but server save failed.");
+    if (!inventoryResponse.ok) {
+      const result = (await inventoryResponse.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Vehicle save failed.");
       setSaving(false);
       return;
     }
 
-    const [inventoryResult, videosResult] = (await Promise.all([
-      inventoryResponse.json(),
-      videosResponse.json(),
-    ])) as Array<{ mode?: string; count?: number; deleted?: number }>;
-
-    const savedToSupabase =
-      inventoryResult.mode === "supabase" || videosResult.mode === "supabase";
+    const inventoryResult = (await inventoryResponse.json()) as {
+      mode?: string;
+      count?: number;
+      deleted?: number;
+    };
     const deletedCount = inventoryResult.deleted ?? deletedVehicles.length;
 
     setNotice(
-      savedToSupabase
-        ? `Saved ${inventoryResult.count ?? vehicles.length} vehicles and ${
-            videosResult.count ?? videos.length
-          } videos to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
-        : "Draft saved locally. Add Supabase env vars for remote persistence.",
+      inventoryResult.mode === "supabase"
+        ? `Saved ${inventoryResult.count ?? vehicles.length} vehicles to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
+        : "Vehicle save did not reach Supabase. Check server environment variables.",
     );
+    setDeletedVehicles([]);
     setSaving(false);
   }
 
   async function saveVideosOnly() {
     setVideoSaving(true);
-    window.localStorage.setItem(videoStorageKey, JSON.stringify(videos));
 
     const response = await fetch("/api/admin/videos", {
       body: JSON.stringify({ videos }),
@@ -563,33 +509,24 @@ export function AdminInventoryManager({
         ? `Saved ${result.count ?? videos.length} homepage videos${
             result.databaseError ? " using Storage fallback" : ""
           }.`
-        : "Videos saved locally. Add Supabase env vars for remote persistence.",
+        : "Video save did not reach Supabase. Check server environment variables.",
     );
     setVideoUploadStatus("");
     setVideoSaving(false);
   }
 
-  function resetDraft() {
-    const next = initialVehicles.map((vehicle) => ({
-      ...vehicle,
-      claimStatus: vehicle.claimStatus ?? "unknown",
-      isFeatured: vehicle.isFeatured ?? true,
-    }));
-    window.localStorage.removeItem(storageKey);
-    window.localStorage.removeItem(videoStorageKey);
-    setVehicles(next);
-    setVideos(initialVideos);
-    setSelectedId(next[0]?.id ?? "");
-    setSelectedVideoId(initialVideos[0]?.id ?? "");
-    setNotice("Draft reset to source content.");
+  async function reloadVehicles() {
+    await loadInventory();
+    setDeletedVehicles([]);
+    setNotice("Vehicles reloaded from Supabase.");
   }
 
   function addVehicle() {
-    const id = `draft-${Date.now()}`;
+    const id = `vehicle-${Date.now()}`;
     const next = { ...blankVehicle, id };
     setVehicles((current) => [next, ...current]);
     setSelectedId(id);
-    setNotice("New vehicle draft added.");
+    setNotice("New vehicle added. Click Save Vehicles to publish it.");
   }
 
   function addVideo() {
@@ -597,16 +534,25 @@ export function AdminInventoryManager({
     const next = { ...blankVideo, id, sortOrder: videos.length };
     setVideos((current) => [next, ...current]);
     setSelectedVideoId(id);
-    setNotice("New video draft added.");
+    setNotice("New video added. Click Save Videos to publish it.");
   }
 
   function removeVideo(id: string) {
+    const video = videos.find((item) => item.id === id);
+    const confirmed = window.confirm(
+      `Remove ${video?.title || "this video"} from homepage videos? Click Save Videos afterward to publish the change.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setVideos((current) => {
       const next = current.filter((video) => video.id !== id);
       setSelectedVideoId(next[0]?.id ?? "");
       return next;
     });
-    setNotice("Video removed from draft.");
+    setNotice("Video removed. Click Save Videos to publish the change.");
   }
 
   function removeVehicle(id: string) {
@@ -618,7 +564,7 @@ export function AdminInventoryManager({
 
     const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
     const confirmed = window.confirm(
-      `Remove ${vehicleName || "this vehicle"} from inventory? It will move to Deleted vehicles until you save.`,
+      `Remove ${vehicleName || "this vehicle"} from inventory? It will move to Pending deletions until you save vehicles.`,
     );
 
     if (!confirmed) {
@@ -634,7 +580,7 @@ export function AdminInventoryManager({
       current.some((deleted) => deleted.id === id) ? current : [vehicle, ...current],
     );
     setNotice(
-      "Vehicle moved to Deleted vehicles. Click Save Draft to publish the deletion.",
+      "Vehicle moved to Pending deletions. Click Save Vehicles to delete it from Supabase.",
     );
   }
 
@@ -650,30 +596,38 @@ export function AdminInventoryManager({
     );
     setDeletedVehicles((current) => current.filter((item) => item.id !== id));
     setSelectedId(id);
-    setNotice("Vehicle restored to the draft.");
+    setNotice("Vehicle restored.");
   }
 
-  function clearDeletedVehicles() {
+  function restoreAllDeletedVehicles() {
     const confirmed = window.confirm(
-      "Clear the Deleted vehicles list? This only removes the recovery list from admin.",
+      "Restore all pending deletions back to the vehicle list?",
     );
 
     if (!confirmed) {
       return;
     }
 
+    setVehicles((current) => {
+      const currentIds = new Set(current.map((vehicle) => vehicle.id));
+      const vehiclesToRestore = deletedVehicles.filter(
+        (vehicle) => !currentIds.has(vehicle.id),
+      );
+
+      return [...vehiclesToRestore, ...current];
+    });
     setDeletedVehicles([]);
-    setNotice("Deleted vehicles list cleared.");
+    setNotice("All pending deletions were restored.");
   }
 
-  function exportDraft() {
+  function exportVehicles() {
     const blob = new Blob([JSON.stringify(vehicles, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "inventory-draft.json";
+    link.download = "inventory-export.json";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -709,7 +663,8 @@ export function AdminInventoryManager({
 
     setVehicles(normalized);
     setSelectedId(normalized[0]?.id ?? "");
-    setNotice(`Imported ${normalized.length} vehicles.`);
+    setDeletedVehicles([]);
+    setNotice(`Imported ${normalized.length} vehicles. Click Save Vehicles to publish them.`);
     event.target.value = "";
   }
 
@@ -717,7 +672,7 @@ export function AdminInventoryManager({
     <section className="admin-shell">
       <div className="admin-toolbar">
         <div>
-          <p className="eyebrow">Inventory draft</p>
+          <p className="eyebrow">Supabase inventory</p>
           <h2>{vehicles.length} vehicles</h2>
         </div>
         <div className="admin-actions">
@@ -725,7 +680,7 @@ export function AdminInventoryManager({
             Import CSV/JSON
             <input accept=".csv,.json" onChange={importFile} type="file" />
           </label>
-          <button className="button secondary" onClick={exportDraft} type="button">
+          <button className="button secondary" onClick={exportVehicles} type="button">
             Export
           </button>
           <button className="button secondary" onClick={addVehicle} type="button">
@@ -737,10 +692,10 @@ export function AdminInventoryManager({
           <button
             className="button primary"
             disabled={saving}
-            onClick={saveDraft}
+            onClick={saveVehiclesOnly}
             type="button"
           >
-            {saving ? "Saving..." : "Save Draft"}
+            {saving ? "Saving..." : "Save Vehicles"}
           </button>
         </div>
       </div>
@@ -844,10 +799,10 @@ export function AdminInventoryManager({
 
           <div className="deleted-vehicles-panel">
             <div className="deleted-vehicles-head">
-              <span>Deleted vehicles</span>
+              <span>Pending deletions</span>
               {deletedVehicles.length ? (
-                <button onClick={clearDeletedVehicles} type="button">
-                  Clear
+                <button onClick={restoreAllDeletedVehicles} type="button">
+                  Restore All
                 </button>
               ) : null}
             </div>
@@ -868,7 +823,7 @@ export function AdminInventoryManager({
                 ))}
               </div>
             ) : (
-              <p>No deleted vehicles in this draft.</p>
+              <p>No pending deletions.</p>
             )}
           </div>
         </div>
@@ -1086,16 +1041,16 @@ export function AdminInventoryManager({
             </div>
 
             <div className="admin-actions bottom-actions">
-              <button className="button secondary" onClick={resetDraft} type="button">
-                Reset Draft
+              <button className="button secondary" onClick={reloadVehicles} type="button">
+                Reload Vehicles
               </button>
               <button
                 className="button primary"
                 disabled={saving}
-                onClick={saveDraft}
+                onClick={saveVehiclesOnly}
                 type="button"
               >
-                {saving ? "Saving..." : "Save Draft"}
+                {saving ? "Saving..." : "Save Vehicles"}
               </button>
             </div>
           </form>
