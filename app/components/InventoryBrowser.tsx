@@ -408,6 +408,23 @@ function VehicleDetailModal({
   const details = splitContentLines(vehicle.details);
   const [showContactForm, setShowContactForm] = useState(false);
   const contactPrefill = getVehicleContactPrefill(vehicle);
+  const canBrowseImages = images.length > 1;
+
+  function showPreviousImage() {
+    if (!canBrowseImages) {
+      return;
+    }
+
+    onImageIndexChange((imageIndex - 1 + images.length) % images.length);
+  }
+
+  function showNextImage() {
+    if (!canBrowseImages) {
+      return;
+    }
+
+    onImageIndexChange((imageIndex + 1) % images.length);
+  }
 
   return (
     <div
@@ -441,6 +458,29 @@ function VehicleDetailModal({
               <div className={`vehicle-photo-status ${vehicle.status}`}>
                 {vehicle.status === "incoming" ? "Incoming" : "Sold"}
               </div>
+            ) : null}
+            {canBrowseImages ? (
+              <>
+                <button
+                  aria-label="Show previous photo"
+                  className="vehicle-gallery-arrow previous"
+                  onClick={showPreviousImage}
+                  type="button"
+                >
+                  ‹
+                </button>
+                <button
+                  aria-label="Show next photo"
+                  className="vehicle-gallery-arrow next"
+                  onClick={showNextImage}
+                  type="button"
+                >
+                  ›
+                </button>
+                <span className="vehicle-gallery-count">
+                  {imageIndex + 1} / {images.length}
+                </span>
+              </>
             ) : null}
           </div>
           {images.length > 1 ? (

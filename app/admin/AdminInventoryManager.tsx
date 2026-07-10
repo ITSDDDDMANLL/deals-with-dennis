@@ -103,6 +103,7 @@ export function AdminInventoryManager({
   );
   const [videoSaving, setVideoSaving] = useState(false);
   const [videoUploadStatus, setVideoUploadStatus] = useState("");
+  const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     void loadInventory();
@@ -409,6 +410,31 @@ export function AdminInventoryManager({
       imageUrls: [selected, ...currentImages],
     });
     setNotice("Cover image updated.");
+  }
+
+  function reorderVehicleImage(
+    id: string,
+    fromIndex: number | null,
+    toIndex: number,
+  ) {
+    if (fromIndex === null || fromIndex === toIndex) {
+      setDraggedImageIndex(null);
+      return;
+    }
+
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentImages = [...(vehicle?.imageUrls ?? [])];
+    const [movedImage] = currentImages.splice(fromIndex, 1);
+
+    if (!movedImage) {
+      setDraggedImageIndex(null);
+      return;
+    }
+
+    currentImages.splice(toIndex, 0, movedImage);
+    updateVehicle(id, { imageUrls: currentImages });
+    setDraggedImageIndex(null);
+    setNotice("Image order updated. Click Save Vehicles to publish it.");
   }
 
   async function loadInventory() {
@@ -873,8 +899,29 @@ export function AdminInventoryManager({
                 {(selectedVehicle.imageUrls?.length ?? 0) > 0 ? (
                   <div className="image-grid">
                     {selectedVehicle.imageUrls?.map((imageUrl, index) => (
-                      <div className="image-tile" key={`${imageUrl}-${index}`}>
+                      <div
+                        className={`image-tile ${
+                          draggedImageIndex === index ? "dragging" : ""
+                        }`}
+                        draggable
+                        key={`${imageUrl}-${index}`}
+                        onDragEnd={() => setDraggedImageIndex(null)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDragStart={() => setDraggedImageIndex(index)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          reorderVehicleImage(
+                            selectedVehicle.id,
+                            draggedImageIndex,
+                            index,
+                          );
+                        }}
+                      >
                         <img alt="" src={imageUrl} />
+                        <div className="image-drag-handle">
+                          <span>{index === 0 ? "Cover" : `Photo ${index + 1}`}</span>
+                          <small>Drag to reorder</small>
+                        </div>
                         <div className="image-actions">
                           <button
                             onClick={() => setCoverImage(selectedVehicle.id, index)}

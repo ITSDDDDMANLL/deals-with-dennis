@@ -898,6 +898,52 @@ h3 {
   text-transform: uppercase;
 }
 
+.vehicle-gallery-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  border: 2px solid rgba(255, 250, 241, 0.72);
+  border-radius: 999px;
+  background: rgba(21, 18, 15, 0.66);
+  color: #fffaf1;
+  cursor: pointer;
+  font-size: 36px;
+  font-weight: 950;
+  line-height: 1;
+  place-items: center;
+  transform: translateY(-50%);
+}
+
+.vehicle-gallery-arrow:hover,
+.vehicle-gallery-arrow:focus-visible {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.vehicle-gallery-arrow.previous {
+  left: 16px;
+}
+
+.vehicle-gallery-arrow.next {
+  right: 16px;
+}
+
+.vehicle-gallery-count {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
+  border-radius: 999px;
+  background: rgba(21, 18, 15, 0.72);
+  color: #fffaf1;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 950;
+}
+
 .vehicle-modal-thumbs {
   display: flex;
   gap: 8px;
@@ -1890,6 +1936,13 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--panel);
+  cursor: grab;
+}
+
+.image-tile.dragging {
+  opacity: 0.48;
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .image-tile img {
@@ -1897,6 +1950,35 @@ h3 {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
+}
+
+.image-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fff8e9;
+  padding: 8px;
+}
+
+.image-drag-handle span,
+.image-drag-handle small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-drag-handle span {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.image-drag-handle small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .image-actions {
