@@ -1017,7 +1017,7 @@ h3 {
   margin: 10px 0 4px;
 }
 
-.vehicle-modal-title p {
+.vehicle-modal-title .vehicle-trim {
   color: var(--muted);
   font-size: clamp(24px, 3vw, 32px);
   font-weight: 900;
