@@ -348,7 +348,9 @@ export function InventoryBrowser({
                   <h3>
                     {vehicle.year} {vehicle.make} {vehicle.model}
                   </h3>
-                  <p>{vehicle.trim || "Trim details coming soon"}</p>
+                  <p className="vehicle-trim">
+                    {vehicle.trim || "Trim details coming soon"}
+                  </p>
                   <div className="vehicle-price-row">
                     <strong>{vehicle.priceLabel}</strong>
                     <VehicleCardTags vehicle={vehicle} />
@@ -507,7 +509,9 @@ function VehicleDetailModal({
               <h2>
                 {vehicle.year} {vehicle.make} {vehicle.model}
               </h2>
-              <p>{vehicle.trim || "Trim details coming soon"}</p>
+              <p className="vehicle-trim">
+                {vehicle.trim || "Trim details coming soon"}
+              </p>
             </div>
             <div className="vehicle-modal-price">
               <div className="vehicle-price-row">
@@ -625,7 +629,7 @@ function VehicleCardTags({ vehicle }: { vehicle: Vehicle }) {
     <span className="vehicle-inline-tags">
       <span className="type-label">{vehicle.type}</span>
       {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
-        <span className="claim-label">
+        <span className={`claim-label ${vehicle.claimStatus ?? "unknown"}`}>
           {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}
         </span>
       ) : null}

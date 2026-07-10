@@ -658,6 +658,22 @@ h3 {
   color: #765007;
 }
 
+.claim-label.no-claim {
+  border: 1px solid rgba(20, 63, 58, 0.24);
+  background: #dff2e8;
+  color: var(--forest);
+}
+
+.claim-label.minor-claim {
+  background: rgba(217, 164, 65, 0.22);
+  color: #765007;
+}
+
+.claim-label.claim-over-5k {
+  background: #ffe0d3;
+  color: var(--rust);
+}
+
 .vehicle-body h3,
 .vehicle-body p {
   margin-bottom: 0;
@@ -676,6 +692,13 @@ h3 {
 .vehicle-summary > p {
   min-height: 0;
   color: var(--ink);
+}
+
+.vehicle-summary .vehicle-trim {
+  color: var(--ink);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 850;
+  line-height: 1.16;
 }
 
 .vehicle-summary strong {
@@ -996,6 +1019,9 @@ h3 {
 
 .vehicle-modal-title p {
   color: var(--muted);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 900;
+  line-height: 1.14;
   margin-bottom: 0;
 }
 
