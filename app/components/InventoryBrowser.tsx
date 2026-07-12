@@ -152,6 +152,7 @@ export function InventoryBrowser({
   function openVehicle(vehicle: Vehicle) {
     setSelectedVehicle(vehicle);
     setSelectedImageIndex(0);
+    trackVehicleEvent("vehicle_view", vehicle);
   }
 
   function closeVehicle() {
@@ -385,6 +386,7 @@ export function InventoryBrowser({
         <VehicleDetailModal
           imageIndex={selectedImageIndex}
           onClose={closeVehicle}
+          onContactClick={(vehicle) => trackVehicleEvent("contact_click", vehicle)}
           onImageIndexChange={setSelectedImageIndex}
           vehicle={selectedVehicle}
         />
@@ -396,11 +398,13 @@ export function InventoryBrowser({
 function VehicleDetailModal({
   imageIndex,
   onClose,
+  onContactClick,
   onImageIndexChange,
   vehicle,
 }: {
   imageIndex: number;
   onClose: () => void;
+  onContactClick: (vehicle: Vehicle) => void;
   onImageIndexChange: (index: number) => void;
   vehicle: Vehicle;
 }) {
@@ -527,7 +531,10 @@ function VehicleDetailModal({
               </p>
               <button
                 className="button primary"
-                onClick={() => setShowContactForm(true)}
+                onClick={() => {
+                  onContactClick(vehicle);
+                  setShowContactForm(true);
+                }}
                 type="button"
               >
                 Contact Dennis
@@ -622,6 +629,39 @@ function VehicleDetailModal({
       </div>
     </div>
   );
+}
+
+function trackVehicleEvent(
+  eventType: "vehicle_view" | "contact_click",
+  vehicle: Vehicle,
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
+
+  void fetch("/api/analytics", {
+    body: JSON.stringify({
+      eventType,
+      metadata: {
+        priceLabel: vehicle.priceLabel,
+        status: vehicle.status,
+        type: vehicle.type,
+      },
+      pagePath: window.location.pathname,
+      vehicle: {
+        id: vehicle.id,
+        label: vehicleLabel,
+        stockNumber: vehicle.stockNumber,
+      },
+    }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    keepalive: true,
+    method: "POST",
+  }).catch(() => undefined);
 }
 
 function VehicleCardTags({ vehicle }: { vehicle: Vehicle }) {
