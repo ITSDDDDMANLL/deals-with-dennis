@@ -849,8 +849,34 @@ function TextAreaField({
 
 function VideoPreview({ video }: { video: SiteVideo }) {
   const videoType = getVideoPreviewType(video.videoUrl);
+  const previewThumbnailUrl =
+    video.thumbnailUrl || getVideoThumbnailUrl(video.videoUrl);
 
   if (video.videoUrl) {
+    if (previewThumbnailUrl && videoType.prefersThumbnail) {
+      return (
+        <div className="content-video-preview">
+          <div className="admin-video-thumbnail-preview">
+            <img
+              alt={`${video.title || "Video"} preview`}
+              src={previewThumbnailUrl}
+            />
+            <div>
+              <span>Deals with Dennis</span>
+              <strong>{video.title || "Social video"}</strong>
+              <a href={video.videoUrl} rel="noopener" target="_blank">
+                Open video
+              </a>
+            </div>
+          </div>
+          <div className="preview-status">
+            <strong>{videoType.label}</strong>
+            <span>{videoType.help}</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="content-video-preview">
         <SiteVideoFrame video={video} />
@@ -893,20 +919,23 @@ function getVideoPreviewType(value: string) {
     return {
       help: "This link cannot be embedded yet. It will show as an external open button.",
       label: "External link preview",
+      prefersThumbnail: false,
     };
   }
 
   if (url.hostname.includes("tiktok.com")) {
     return {
-      help: "TikTok embeds may show a branded player after the URL is saved.",
+      help: "TikTok links open best from a thumbnail preview. Upload a thumbnail if TikTok does not provide one.",
       label: "TikTok preview",
+      prefersThumbnail: true,
     };
   }
 
   if (url.hostname.includes("youtube.com") || url.hostname.includes("youtu.be")) {
     return {
-      help: "YouTube embeds are shown directly in the preview.",
+      help: "YouTube and Shorts links show an automatic thumbnail. Uploaded thumbnails override it.",
       label: "YouTube preview",
+      prefersThumbnail: true,
     };
   }
 
@@ -914,13 +943,47 @@ function getVideoPreviewType(value: string) {
     return {
       help: "Direct video files preview in the browser player.",
       label: "Direct video preview",
+      prefersThumbnail: false,
     };
   }
 
   return {
     help: "This link will be displayed with an Open video button.",
     label: "External link preview",
+    prefersThumbnail: true,
   };
+}
+
+function getVideoThumbnailUrl(value: string) {
+  const url = safeUrl(value);
+
+  if (!url) {
+    return "";
+  }
+
+  const youtubeId = getYouTubeId(url);
+
+  return youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : "";
+}
+
+function getYouTubeId(url: URL) {
+  if (url.hostname.includes("youtu.be")) {
+    return url.pathname.split("/").filter(Boolean)[0] ?? "";
+  }
+
+  if (!url.hostname.includes("youtube.com")) {
+    return "";
+  }
+
+  if (url.pathname.startsWith("/shorts/")) {
+    return url.pathname.split("/").filter(Boolean)[1] ?? "";
+  }
+
+  if (url.pathname.startsWith("/embed/")) {
+    return url.pathname.split("/").filter(Boolean)[1] ?? "";
+  }
+
+  return url.searchParams.get("v") ?? "";
 }
 
 function getVideoContentType(fileName: string) {

@@ -8,6 +8,7 @@ type SiteVideoFrameProps = {
 export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
   const embedUrl = getEmbeddableVideoUrl(video.videoUrl);
   const isDirectVideo = isDirectVideoUrl(video.videoUrl);
+  const thumbnailUrl = video.thumbnailUrl || getVideoThumbnailUrl(video.videoUrl);
 
   if (embedUrl) {
     return (
@@ -25,11 +26,11 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
   if (!isDirectVideo) {
     return (
       <div className={`external-video-preview ${className}`}>
-        {video.thumbnailUrl ? (
+        {thumbnailUrl ? (
           <img
             alt=""
             className="external-video-thumbnail"
-            src={video.thumbnailUrl}
+            src={thumbnailUrl}
           />
         ) : null}
         <span>Deals with Dennis</span>
@@ -46,7 +47,7 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
       className={`video-file-frame ${className}`.trim()}
       controls
       playsInline
-      poster={video.thumbnailUrl || undefined}
+      poster={thumbnailUrl || undefined}
       preload="metadata"
       src={video.videoUrl}
     />
@@ -80,7 +81,7 @@ function getEmbeddableVideoUrl(value: string) {
   }
 
   if (url.hostname.includes("youtube.com")) {
-    const id = url.searchParams.get("v");
+    const id = getYouTubeId(url);
     return id ? `https://www.youtube.com/embed/${id}` : "";
   }
 
@@ -90,6 +91,38 @@ function getEmbeddableVideoUrl(value: string) {
   }
 
   return "";
+}
+
+function getVideoThumbnailUrl(value: string) {
+  const url = safeUrl(value);
+
+  if (!url) {
+    return "";
+  }
+
+  const youtubeId = getYouTubeId(url);
+
+  return youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : "";
+}
+
+function getYouTubeId(url: URL) {
+  if (url.hostname.includes("youtu.be")) {
+    return url.pathname.split("/").filter(Boolean)[0] ?? "";
+  }
+
+  if (!url.hostname.includes("youtube.com")) {
+    return "";
+  }
+
+  if (url.pathname.startsWith("/shorts/")) {
+    return url.pathname.split("/").filter(Boolean)[1] ?? "";
+  }
+
+  if (url.pathname.startsWith("/embed/")) {
+    return url.pathname.split("/").filter(Boolean)[1] ?? "";
+  }
+
+  return url.searchParams.get("v") ?? "";
 }
 
 function safeUrl(value: string) {
