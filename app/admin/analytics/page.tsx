@@ -56,8 +56,9 @@ export default async function AdminAnalyticsPage() {
                 <h1>Website analytics</h1>
               </div>
               <p>
-                Track which vehicles people open and which vehicles lead to a
-                Contact Dennis click. Data shown here covers the last 30 days.
+                Track page views, searches, filters, vehicle detail opens,
+                photo browsing, Contact Dennis clicks, and submitted inquiries.
+                Data shown here covers the last 30 days.
               </p>
             </section>
 
@@ -76,11 +77,27 @@ export default async function AdminAnalyticsPage() {
                   <strong>{summary.vehicleViews}</strong>
                 </div>
                 <div>
+                  <span>Searches</span>
+                  <strong>{summary.searches}</strong>
+                </div>
+                <div>
+                  <span>Filter actions</span>
+                  <strong>{summary.filterActions}</strong>
+                </div>
+                <div>
+                  <span>Photo browses</span>
+                  <strong>{summary.photoBrowses}</strong>
+                </div>
+                <div>
                   <span>Contact clicks</span>
                   <strong>{summary.contactClicks}</strong>
                 </div>
                 <div>
-                  <span>Conversion</span>
+                  <span>Submitted leads</span>
+                  <strong>{summary.contactSubmits}</strong>
+                </div>
+                <div>
+                  <span>Click conversion</span>
                   <strong>{conversionRate}%</strong>
                 </div>
                 <div>
@@ -135,6 +152,29 @@ export default async function AdminAnalyticsPage() {
                 <section className="analytics-card">
                   <div className="analytics-card-head">
                     <div>
+                      <p className="eyebrow">Behavior</p>
+                      <h2>Event mix</h2>
+                    </div>
+                    <span>{summary.eventBreakdown.length} types</span>
+                  </div>
+
+                  {summary.eventBreakdown.length ? (
+                    <div className="analytics-event-breakdown">
+                      {summary.eventBreakdown.map((event) => (
+                        <div key={event.eventType}>
+                          <span>{labelEventType(event.eventType)}</span>
+                          <strong>{event.count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-empty">No behavior events yet.</p>
+                  )}
+                </section>
+
+                <section className="analytics-card">
+                  <div className="analytics-card-head">
+                    <div>
                       <p className="eyebrow">Recent activity</p>
                       <h2>Event stream</h2>
                     </div>
@@ -154,6 +194,8 @@ export default async function AdminAnalyticsPage() {
                               {event.vehicleStockNumber
                                 ? `Stock ${event.vehicleStockNumber} · `
                                 : ""}
+                              {eventSummary(event)}
+                              {eventSummary(event) ? " · " : ""}
                               {formatAnalyticsDate(event.createdAt)}
                             </small>
                           </div>
@@ -189,15 +231,47 @@ function formatAnalyticsDate(value: string) {
 }
 
 function labelEventType(value: string) {
+  if (value === "page_view") {
+    return "Page view";
+  }
+
+  if (value === "inventory_search") {
+    return "Search";
+  }
+
+  if (value === "inventory_filter") {
+    return "Filter";
+  }
+
+  if (value === "filter_reset") {
+    return "Filter reset";
+  }
+
+  if (value === "inventory_sort") {
+    return "Sort";
+  }
+
+  if (value === "view_mode_change") {
+    return "View mode";
+  }
+
   if (value === "vehicle_view") {
     return "Vehicle view";
+  }
+
+  if (value === "photo_browse") {
+    return "Photo browse";
   }
 
   if (value === "contact_click") {
     return "Contact click";
   }
 
-  return "Page view";
+  if (value === "contact_submit") {
+    return "Lead submitted";
+  }
+
+  return value;
 }
 
 function vehicleConversion(vehicle: { contacts: number; views: number }) {
@@ -206,4 +280,49 @@ function vehicleConversion(vehicle: { contacts: number; views: number }) {
   }
 
   return Math.round((vehicle.contacts / vehicle.views) * 100);
+}
+
+function eventSummary(event: {
+  eventType: string;
+  metadata: Record<string, unknown>;
+  pagePath: string;
+}) {
+  if (event.eventType === "inventory_search") {
+    const query = valueToLabel(event.metadata.query);
+    return query ? `Query "${query}"` : "";
+  }
+
+  if (event.eventType === "inventory_filter") {
+    const field = valueToLabel(event.metadata.field);
+    const value = valueToLabel(event.metadata.value);
+    return field && value ? `${field}: ${value}` : "";
+  }
+
+  if (event.eventType === "inventory_sort") {
+    return valueToLabel(event.metadata.value);
+  }
+
+  if (event.eventType === "view_mode_change") {
+    return valueToLabel(event.metadata.value);
+  }
+
+  if (event.eventType === "photo_browse") {
+    const index = valueToLabel(event.metadata.imageIndex);
+    const total = valueToLabel(event.metadata.imageTotal);
+    return index && total ? `Photo ${index}/${total}` : "";
+  }
+
+  if (event.eventType === "page_view") {
+    return event.pagePath;
+  }
+
+  return "";
+}
+
+function valueToLabel(value: unknown) {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return "";
 }

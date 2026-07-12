@@ -1,11 +1,22 @@
 import { createSupabaseAdmin } from "./supabase/admin";
 
-export type AnalyticsEventType = "vehicle_view" | "contact_click" | "page_view";
+export type AnalyticsEventType =
+  | "page_view"
+  | "inventory_search"
+  | "inventory_filter"
+  | "inventory_sort"
+  | "view_mode_change"
+  | "filter_reset"
+  | "vehicle_view"
+  | "photo_browse"
+  | "contact_click"
+  | "contact_submit";
 
 export type AnalyticsEvent = {
   createdAt: string;
   eventType: AnalyticsEventType;
   id: string;
+  metadata: Record<string, unknown>;
   pagePath: string;
   vehicleId: string;
   vehicleLabel: string;
@@ -23,10 +34,19 @@ export type VehicleAnalyticsRow = {
 
 export type AnalyticsSummary = {
   contactClicks: number;
+  contactSubmits: number;
+  eventBreakdown: Array<{
+    count: number;
+    eventType: AnalyticsEventType;
+  }>;
   events: AnalyticsEvent[];
+  filterActions: number;
   isAvailable: boolean;
   pageViews: number;
+  photoBrowses: number;
+  searches: number;
   since: string;
+  sortActions: number;
   todayEvents: number;
   topVehicles: VehicleAnalyticsRow[];
   totalEvents: number;
@@ -37,6 +57,7 @@ type SiteEventRow = {
   created_at: string;
   event_type: AnalyticsEventType;
   id: string;
+  metadata: Record<string, unknown> | null;
   page_path: string | null;
   vehicle_id: string | null;
   vehicle_label: string | null;
@@ -58,7 +79,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   const { data, error } = await supabase
     .from("site_events")
     .select(
-      "id, event_type, vehicle_id, vehicle_stock_number, vehicle_label, page_path, created_at",
+      "id, event_type, vehicle_id, vehicle_stock_number, vehicle_label, page_path, metadata, created_at",
     )
     .gte("created_at", since)
     .order("created_at", { ascending: false })
@@ -72,6 +93,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     createdAt: row.created_at,
     eventType: row.event_type,
     id: row.id,
+    metadata: row.metadata ?? {},
     pagePath: row.page_path ?? "",
     vehicleId: row.vehicle_id ?? "",
     vehicleLabel: row.vehicle_label ?? "Unknown vehicle",
@@ -113,14 +135,38 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   }
 
   const today = new Date();
+  const eventBreakdownMap = new Map<AnalyticsEventType, number>();
+
+  for (const event of events) {
+    eventBreakdownMap.set(
+      event.eventType,
+      (eventBreakdownMap.get(event.eventType) ?? 0) + 1,
+    );
+  }
 
   return {
     contactClicks: events.filter((event) => event.eventType === "contact_click")
       .length,
+    contactSubmits: events.filter((event) => event.eventType === "contact_submit")
+      .length,
+    eventBreakdown: Array.from(eventBreakdownMap.entries())
+      .map(([eventType, count]) => ({ count, eventType }))
+      .sort((a, b) => b.count - a.count),
     events: events.slice(0, 60),
+    filterActions: events.filter(
+      (event) =>
+        event.eventType === "inventory_filter" ||
+        event.eventType === "filter_reset",
+    ).length,
     isAvailable: true,
     pageViews: events.filter((event) => event.eventType === "page_view").length,
+    photoBrowses: events.filter((event) => event.eventType === "photo_browse")
+      .length,
+    searches: events.filter((event) => event.eventType === "inventory_search")
+      .length,
     since,
+    sortActions: events.filter((event) => event.eventType === "inventory_sort")
+      .length,
     todayEvents: events.filter((event) =>
       isSameLocalDate(event.createdAt, today),
     ).length,
@@ -136,10 +182,16 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
 function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
   return {
     contactClicks: 0,
+    contactSubmits: 0,
+    eventBreakdown: [],
     events: [],
+    filterActions: 0,
     isAvailable,
     pageViews: 0,
+    photoBrowses: 0,
+    searches: 0,
     since,
+    sortActions: 0,
     todayEvents: 0,
     topVehicles: [],
     totalEvents: 0,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
 import { ContactForm } from "./ContactForm";
 
@@ -27,6 +27,16 @@ type SelectFilterKey =
   | "claim";
 
 type SelectFilters = Record<SelectFilterKey, string>;
+type ClientAnalyticsEventType =
+  | "page_view"
+  | "inventory_search"
+  | "inventory_filter"
+  | "inventory_sort"
+  | "view_mode_change"
+  | "filter_reset"
+  | "vehicle_view"
+  | "photo_browse"
+  | "contact_click";
 
 const claimStatusLabels: Record<ClaimStatus, string> = {
   unknown: "Claim status TBD",
@@ -49,6 +59,7 @@ export function InventoryBrowser({
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const hasTrackedPageView = useRef(false);
   const [selectFilters, setSelectFilters] = useState<SelectFilters>({
     bodyStyle: "all",
     claim: "all",
@@ -127,8 +138,41 @@ export function InventoryBrowser({
     });
   }, [filter, priceFilter, search, selectFilters, showAdvancedControls, sort, vehicles]);
 
+  useEffect(() => {
+    if (hasTrackedPageView.current) {
+      return;
+    }
+
+    hasTrackedPageView.current = true;
+    trackInventoryEvent("page_view", {
+      context: showAdvancedControls ? "inventory_page" : "featured_inventory",
+      vehicleCount: vehicles.length,
+    });
+  }, [showAdvancedControls, vehicles.length]);
+
+  useEffect(() => {
+    const query = search.trim();
+
+    if (query.length < 2) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      trackInventoryEvent("inventory_search", {
+        query,
+        resultCount: filteredVehicles.length,
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timeout);
+  }, [filteredVehicles.length, search]);
+
   function updateSelectFilter(key: SelectFilterKey, value: string) {
     setSelectFilters((current) => ({ ...current, [key]: value }));
+    trackInventoryEvent("inventory_filter", {
+      field: key,
+      value,
+    });
   }
 
   function resetFilters() {
@@ -146,6 +190,9 @@ export function InventoryBrowser({
       model: "all",
       transmission: "all",
       year: "all",
+    });
+    trackInventoryEvent("filter_reset", {
+      context: showAdvancedControls ? "inventory_page" : "featured_inventory",
     });
   }
 
@@ -193,9 +240,14 @@ export function InventoryBrowser({
               <span>Price</span>
               <select
                 value={priceFilter}
-                onChange={(event) =>
-                  setPriceFilter(event.target.value as PriceFilter)
-                }
+                onChange={(event) => {
+                  const value = event.target.value as PriceFilter;
+                  setPriceFilter(value);
+                  trackInventoryEvent("inventory_filter", {
+                    field: "price",
+                    value,
+                  });
+                }}
               >
                 <option value="all">Any price</option>
                 <option value="under-25">Under $25k</option>
@@ -263,7 +315,10 @@ export function InventoryBrowser({
               <button
                 aria-pressed={viewMode === "list"}
                 className={viewMode === "list" ? "active" : ""}
-                onClick={() => setViewMode("list")}
+                onClick={() => {
+                  setViewMode("list");
+                  trackInventoryEvent("view_mode_change", { value: "list" });
+                }}
                 title="List view"
                 type="button"
               >
@@ -272,7 +327,10 @@ export function InventoryBrowser({
               <button
                 aria-pressed={viewMode === "grid"}
                 className={viewMode === "grid" ? "active" : ""}
-                onClick={() => setViewMode("grid")}
+                onClick={() => {
+                  setViewMode("grid");
+                  trackInventoryEvent("view_mode_change", { value: "grid" });
+                }}
                 title="Grid view"
                 type="button"
               >
@@ -283,7 +341,11 @@ export function InventoryBrowser({
               <span>Sort By</span>
               <select
                 value={sort}
-                onChange={(event) => setSort(event.target.value as InventorySort)}
+                onChange={(event) => {
+                  const value = event.target.value as InventorySort;
+                  setSort(value);
+                  trackInventoryEvent("inventory_sort", { value });
+                }}
               >
                 <option value="featured">Featured first</option>
                 <option value="year-new">Newest year</option>
@@ -302,7 +364,13 @@ export function InventoryBrowser({
                 aria-pressed={filter === option}
                 className={filter === option ? "active" : ""}
                 key={option}
-                onClick={() => setFilter(option)}
+                onClick={() => {
+                  setFilter(option);
+                  trackInventoryEvent("inventory_filter", {
+                    field: "condition",
+                    value: option,
+                  });
+                }}
                 type="button"
               >
                 {option === "all" ? "All" : option === "new" ? "New" : "Used"}
@@ -387,6 +455,9 @@ export function InventoryBrowser({
           imageIndex={selectedImageIndex}
           onClose={closeVehicle}
           onContactClick={(vehicle) => trackVehicleEvent("contact_click", vehicle)}
+          onPhotoBrowse={(vehicle, metadata) =>
+            trackVehicleEvent("photo_browse", vehicle, metadata)
+          }
           onImageIndexChange={setSelectedImageIndex}
           vehicle={selectedVehicle}
         />
@@ -399,12 +470,17 @@ function VehicleDetailModal({
   imageIndex,
   onClose,
   onContactClick,
+  onPhotoBrowse,
   onImageIndexChange,
   vehicle,
 }: {
   imageIndex: number;
   onClose: () => void;
   onContactClick: (vehicle: Vehicle) => void;
+  onPhotoBrowse: (
+    vehicle: Vehicle,
+    metadata: Record<string, string | number>,
+  ) => void;
   onImageIndexChange: (index: number) => void;
   vehicle: Vehicle;
 }) {
@@ -421,7 +497,13 @@ function VehicleDetailModal({
       return;
     }
 
-    onImageIndexChange((imageIndex - 1 + images.length) % images.length);
+    const nextIndex = (imageIndex - 1 + images.length) % images.length;
+    onPhotoBrowse(vehicle, {
+      direction: "previous",
+      imageIndex: nextIndex + 1,
+      imageTotal: images.length,
+    });
+    onImageIndexChange(nextIndex);
   }
 
   function showNextImage() {
@@ -429,7 +511,13 @@ function VehicleDetailModal({
       return;
     }
 
-    onImageIndexChange((imageIndex + 1) % images.length);
+    const nextIndex = (imageIndex + 1) % images.length;
+    onPhotoBrowse(vehicle, {
+      direction: "next",
+      imageIndex: nextIndex + 1,
+      imageTotal: images.length,
+    });
+    onImageIndexChange(nextIndex);
   }
 
   return (
@@ -497,7 +585,14 @@ function VehicleDetailModal({
                   aria-pressed={index === imageIndex}
                   className={index === imageIndex ? "active" : ""}
                   key={`${imageUrl}-${index}`}
-                  onClick={() => onImageIndexChange(index)}
+                  onClick={() => {
+                    onPhotoBrowse(vehicle, {
+                      direction: "thumbnail",
+                      imageIndex: index + 1,
+                      imageTotal: images.length,
+                    });
+                    onImageIndexChange(index);
+                  }}
                   type="button"
                 >
                   <img alt="" src={imageUrl} />
@@ -632,8 +727,9 @@ function VehicleDetailModal({
 }
 
 function trackVehicleEvent(
-  eventType: "vehicle_view" | "contact_click",
+  eventType: ClientAnalyticsEventType,
   vehicle: Vehicle,
+  metadata: Record<string, unknown> = {},
 ) {
   if (typeof window === "undefined") {
     return;
@@ -645,6 +741,7 @@ function trackVehicleEvent(
     body: JSON.stringify({
       eventType,
       metadata: {
+        ...metadata,
         priceLabel: vehicle.priceLabel,
         status: vehicle.status,
         type: vehicle.type,
@@ -655,6 +752,28 @@ function trackVehicleEvent(
         label: vehicleLabel,
         stockNumber: vehicle.stockNumber,
       },
+    }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    keepalive: true,
+    method: "POST",
+  }).catch(() => undefined);
+}
+
+function trackInventoryEvent(
+  eventType: ClientAnalyticsEventType,
+  metadata: Record<string, unknown> = {},
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  void fetch("/api/analytics", {
+    body: JSON.stringify({
+      eventType,
+      metadata,
+      pagePath: window.location.pathname,
     }),
     headers: {
       "Content-Type": "application/json",

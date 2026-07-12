@@ -3,9 +3,16 @@ import type { AnalyticsEventType } from "../../../lib/analytics-store";
 import { createSupabaseAdmin } from "../../../lib/supabase/admin";
 
 const eventTypes = new Set<AnalyticsEventType>([
-  "vehicle_view",
-  "contact_click",
   "page_view",
+  "inventory_search",
+  "inventory_filter",
+  "inventory_sort",
+  "view_mode_change",
+  "filter_reset",
+  "vehicle_view",
+  "photo_browse",
+  "contact_click",
+  "contact_submit",
 ]);
 
 type AnalyticsBody = {

@@ -1,7 +1,20 @@
 create table if not exists public.site_events (
   id uuid primary key default gen_random_uuid(),
   event_type text not null
-    check (event_type in ('vehicle_view', 'contact_click', 'page_view')),
+    check (
+      event_type in (
+        'page_view',
+        'inventory_search',
+        'inventory_filter',
+        'inventory_sort',
+        'view_mode_change',
+        'filter_reset',
+        'vehicle_view',
+        'photo_browse',
+        'contact_click',
+        'contact_submit'
+      )
+    ),
   vehicle_id text,
   vehicle_stock_number text,
   vehicle_label text,
@@ -11,6 +24,26 @@ create table if not exists public.site_events (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.site_events
+  drop constraint if exists site_events_event_type_check;
+
+alter table public.site_events
+  add constraint site_events_event_type_check
+  check (
+    event_type in (
+      'page_view',
+      'inventory_search',
+      'inventory_filter',
+      'inventory_sort',
+      'view_mode_change',
+      'filter_reset',
+      'vehicle_view',
+      'photo_browse',
+      'contact_click',
+      'contact_submit'
+    )
+  );
 
 create index if not exists site_events_created_at_idx
   on public.site_events (created_at desc);

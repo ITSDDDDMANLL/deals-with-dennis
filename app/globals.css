@@ -1671,6 +1671,34 @@ h3 {
   gap: 10px;
 }
 
+.analytics-event-breakdown {
+  display: grid;
+  gap: 10px;
+}
+
+.analytics-event-breakdown div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 12px;
+}
+
+.analytics-event-breakdown span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.analytics-event-breakdown strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
 .analytics-event {
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr);

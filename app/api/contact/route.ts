@@ -34,6 +34,18 @@ export async function POST(request: Request) {
     saveMode = "supabase";
   }
 
+  if (supabase) {
+    await supabase.from("site_events").insert({
+      event_type: "contact_submit",
+      metadata: {
+        hasMessage: Boolean(inquiry.message),
+        source: inquiry.source,
+      },
+      page_path: null,
+      vehicle_label: inquiry.vehicle_type,
+    });
+  }
+
   const notification = await sendInquiryNotification(inquiry);
 
   return NextResponse.json({
