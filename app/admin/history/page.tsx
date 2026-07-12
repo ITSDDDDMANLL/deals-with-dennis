@@ -37,6 +37,7 @@ export default async function AdminHistoryPage() {
           </a>
           <div className="nav-links">
             <a href="/admin">Inventory Admin</a>
+            <a href="/admin/inquiries">Inquiries</a>
             <a href="/">Public Site</a>
             <a className="nav-cta" href="/inventory">
               View Inventory
