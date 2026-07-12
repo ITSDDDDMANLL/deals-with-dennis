@@ -40,6 +40,7 @@ export default async function AdminInquiriesPage() {
           <div className="nav-links">
             <a href="/admin">Inventory Admin</a>
             <a href="/admin/analytics">Analytics</a>
+            <a href="/admin/content">Content</a>
             <a href="/admin/history">History</a>
             <a href="/">Public Site</a>
             <a className="nav-cta" href="/inventory">

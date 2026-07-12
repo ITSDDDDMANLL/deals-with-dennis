@@ -2,8 +2,6 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
-import type { SiteVideo } from "../../lib/video-store";
-import { SiteVideoFrame } from "../components/SiteVideoFrame";
 
 type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
@@ -11,8 +9,6 @@ type EditableVehicle = Vehicle & {
 
 const maxVehicleImages = 20;
 const maxImageSizeBytes = 2_500_000;
-const maxVideoSizeBytes = 250_000_000;
-const maxThumbnailSizeBytes = 2_500_000;
 
 const blankVehicle: EditableVehicle = {
   id: "new-vehicle",
@@ -63,22 +59,10 @@ const drivetrainOptions = ["FWD", "RWD", "AWD", "4x4"];
 const transmissionOptions = ["Manual", "Auto"];
 const fuelOptions = ["Diesel", "Gasoline", "Hybrid", "EV", "PHEV"];
 
-const blankVideo: SiteVideo = {
-  id: "new-video",
-  title: "",
-  description: "",
-  videoUrl: "",
-  thumbnailUrl: "",
-  isFeatured: true,
-  sortOrder: 0,
-};
-
 export function AdminInventoryManager({
   initialVehicles,
-  initialVideos,
 }: {
   initialVehicles: Vehicle[];
-  initialVideos: SiteVideo[];
 }) {
   const [vehicles, setVehicles] = useState<EditableVehicle[]>(() =>
     initialVehicles.map((vehicle) => ({
@@ -97,26 +81,15 @@ export function AdminInventoryManager({
   const [adminYearFilter, setAdminYearFilter] = useState("all");
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
   const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
-  const [videos, setVideos] = useState<SiteVideo[]>(initialVideos);
-  const [selectedVideoId, setSelectedVideoId] = useState(
-    initialVideos[0]?.id ?? "",
-  );
-  const [videoSaving, setVideoSaving] = useState(false);
-  const [videoUploadStatus, setVideoUploadStatus] = useState("");
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     void loadInventory();
-    void loadVideos();
   }, []);
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === selectedId) ?? vehicles[0],
     [selectedId, vehicles],
-  );
-  const selectedVideo = useMemo(
-    () => videos.find((video) => video.id === selectedVideoId) ?? videos[0],
-    [selectedVideoId, videos],
   );
   const adminYearOptions = useMemo(
     () => uniqueAdminValues(vehicles.map((vehicle) => vehicle.year)).sort(
@@ -189,138 +162,6 @@ export function AdminInventoryManager({
         vehicle.id === id ? { ...vehicle, ...patch } : vehicle,
       ),
     );
-  }
-
-  function updateVideo(id: string, patch: Partial<SiteVideo>) {
-    setVideos((current) =>
-      current.map((video) => (video.id === id ? { ...video, ...patch } : video)),
-    );
-  }
-
-  async function uploadSiteVideo(
-    id: string,
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    if (!isAllowedVideoFile(file) || file.size > maxVideoSizeBytes) {
-      setNotice("Video must be a .mov, .mp4, .m4v, or .webm file and 250 MB or smaller.");
-      return;
-    }
-
-    setVideoUploadStatus(`Preparing upload for ${file.name}...`);
-
-    const response = await fetch("/api/admin/videos/upload", {
-      body: JSON.stringify({
-        contentType: file.type || getVideoContentType(file.name),
-        fileName: file.name,
-        fileSize: file.size,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-
-    if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Video upload failed.");
-      setVideoUploadStatus("");
-      return;
-    }
-
-    const result = (await response.json()) as {
-      contentType?: string;
-      signedUrl?: string;
-      videoUrl?: string;
-      mode?: string;
-    };
-
-    if (result.signedUrl) {
-      setVideoUploadStatus("Uploading video to Supabase...");
-      const uploadForm = new FormData();
-      uploadForm.append("cacheControl", "3600");
-      uploadForm.append("", file);
-      const uploadResponse = await fetch(result.signedUrl, {
-        body: uploadForm,
-        headers: { "x-upsert": "false" },
-        method: "PUT",
-      });
-
-      if (!uploadResponse.ok) {
-        setNotice("Video upload failed while sending the file to Supabase.");
-        setVideoUploadStatus("");
-        return;
-      }
-    }
-
-    if (result.videoUrl) {
-      updateVideo(id, { videoUrl: result.videoUrl });
-      setNotice(
-        `Video uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
-      );
-      setVideoUploadStatus("Upload complete. Click Save Videos to publish.");
-    }
-  }
-
-  async function uploadVideoThumbnail(
-    id: string,
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    if (!isAllowedImageFile(file) || file.size > maxThumbnailSizeBytes) {
-      setNotice("Thumbnail must be an image file and 2.5 MB or smaller.");
-      return;
-    }
-
-    setVideoUploadStatus(`Uploading thumbnail ${file.name}...`);
-
-    const formData = new FormData();
-    formData.append("vehicleId", `video-${id}`);
-    formData.append("images", file);
-
-    const response = await fetch("/api/admin/images", {
-      body: formData,
-      method: "POST",
-    });
-
-    if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Thumbnail upload failed.");
-      setVideoUploadStatus("");
-      return;
-    }
-
-    const result = (await response.json()) as {
-      imageUrls?: string[];
-      mode?: string;
-    };
-    const thumbnailUrl = result.imageUrls?.[0] ?? "";
-
-    if (!thumbnailUrl) {
-      setNotice("Thumbnail upload did not return an image URL.");
-      setVideoUploadStatus("");
-      return;
-    }
-
-    updateVideo(id, { thumbnailUrl });
-    setNotice(
-      `Thumbnail uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Videos to publish it.`,
-    );
-    setVideoUploadStatus("Thumbnail uploaded. Click Save Videos to publish.");
   }
 
   async function uploadVehicleImages(
@@ -458,21 +299,6 @@ export function AdminInventoryManager({
     }
   }
 
-  async function loadVideos() {
-    const response = await fetch("/api/admin/videos");
-
-    if (!response.ok) {
-      return;
-    }
-
-    const data = (await response.json()) as { videos?: SiteVideo[] };
-
-    if (data.videos?.length) {
-      setVideos(data.videos);
-      setSelectedVideoId(data.videos[0].id);
-    }
-  }
-
   async function saveVehiclesOnly() {
     setSaving(true);
 
@@ -507,40 +333,6 @@ export function AdminInventoryManager({
     setSaving(false);
   }
 
-  async function saveVideosOnly() {
-    setVideoSaving(true);
-
-    const response = await fetch("/api/admin/videos", {
-      body: JSON.stringify({ videos }),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
-
-    if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Video save failed.");
-      setVideoSaving(false);
-      return;
-    }
-
-    const result = (await response.json()) as {
-      databaseError?: string;
-      mode?: string;
-      count?: number;
-    };
-    setNotice(
-      result.mode === "supabase" || result.mode === "supabase-storage"
-        ? `Saved ${result.count ?? videos.length} homepage videos${
-            result.databaseError ? " using Storage fallback" : ""
-          }.`
-        : "Video save did not reach Supabase. Check server environment variables.",
-    );
-    setVideoUploadStatus("");
-    setVideoSaving(false);
-  }
-
   async function reloadVehicles() {
     await loadInventory();
     setDeletedVehicles([]);
@@ -553,32 +345,6 @@ export function AdminInventoryManager({
     setVehicles((current) => [next, ...current]);
     setSelectedId(id);
     setNotice("New vehicle added. Click Save Vehicles to publish it.");
-  }
-
-  function addVideo() {
-    const id = `video-${Date.now()}`;
-    const next = { ...blankVideo, id, sortOrder: videos.length };
-    setVideos((current) => [next, ...current]);
-    setSelectedVideoId(id);
-    setNotice("New video added. Click Save Videos to publish it.");
-  }
-
-  function removeVideo(id: string) {
-    const video = videos.find((item) => item.id === id);
-    const confirmed = window.confirm(
-      `Remove ${video?.title || "this video"} from homepage videos? Click Save Videos afterward to publish the change.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setVideos((current) => {
-      const next = current.filter((video) => video.id !== id);
-      setSelectedVideoId(next[0]?.id ?? "");
-      return next;
-    });
-    setNotice("Video removed. Click Save Videos to publish the change.");
   }
 
   function removeVehicle(id: string) {
@@ -1103,189 +869,6 @@ export function AdminInventoryManager({
           </form>
         ) : null}
       </div>
-
-      <div className="admin-video-panel">
-        <div className="editor-head">
-          <div>
-            <p className="eyebrow">Social media</p>
-            <h3>Homepage videos</h3>
-          </div>
-          <div className="admin-actions">
-            <button className="button secondary" onClick={addVideo} type="button">
-              Add Video
-            </button>
-            <button
-              className="button primary"
-              disabled={videoSaving}
-              onClick={saveVideosOnly}
-              type="button"
-            >
-              {videoSaving ? "Saving..." : "Save Videos"}
-            </button>
-          </div>
-        </div>
-        <p className="admin-video-help">
-          Upload a .mov/.mp4 file or paste a TikTok/YouTube URL. Click Save
-          Videos after changes so the homepage can show it.
-        </p>
-
-        <div className="video-admin-workspace">
-          <div className="admin-list video-list" aria-label="Homepage videos">
-            {videos.map((video) => (
-              <button
-                className={video.id === selectedVideo?.id ? "active" : ""}
-                key={video.id}
-                onClick={() => setSelectedVideoId(video.id)}
-                type="button"
-              >
-                <span>{video.title || "Untitled video"}</span>
-                <small>
-                  {video.isFeatured === false ? "Hidden" : "Featured"} ·{" "}
-                  {video.videoUrl ? "Video ready" : "No video yet"}
-                </small>
-              </button>
-            ))}
-            {!videos.length ? (
-              <p className="admin-empty">No videos yet. Add one to start.</p>
-            ) : null}
-          </div>
-
-          {selectedVideo ? (
-            <form className="admin-editor video-editor">
-              <div className="video-upload-card">
-                {selectedVideo.videoUrl ? (
-                  <SiteVideoFrame video={selectedVideo} />
-                ) : (
-                  <div className="video-upload-empty">
-                    <span>Deals with Dennis</span>
-                    <p>Upload a short walk-around or paste a direct video URL.</p>
-                  </div>
-                )}
-                {videoUploadStatus ? (
-                  <p className="video-upload-status">{videoUploadStatus}</p>
-                ) : null}
-                <div className="admin-actions">
-                  <label className="button secondary file-button">
-                    Upload Video
-                    <input
-                      accept="video/*,.mov,.mp4,.m4v,.webm"
-                      onChange={(event) => uploadSiteVideo(selectedVideo.id, event)}
-                      type="file"
-                    />
-                  </label>
-                  <button
-                    className="button danger"
-                    onClick={() => removeVideo(selectedVideo.id)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-
-              <div className="editor-grid">
-                <label>
-                  <span>Title</span>
-                  <input
-                    value={selectedVideo.title}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, { title: event.target.value })
-                    }
-                    placeholder="Fresh trade-in walk-around"
-                    type="text"
-                  />
-                </label>
-                <label>
-                  <span>Featured on homepage</span>
-                  <select
-                    value={selectedVideo.isFeatured === false ? "no" : "yes"}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, {
-                        isFeatured: event.target.value === "yes",
-                      })
-                    }
-                  >
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                </label>
-                <label className="editor-wide">
-                  <span>Video URL</span>
-                  <input
-                    value={selectedVideo.videoUrl}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, {
-                        videoUrl: event.target.value,
-                      })
-                    }
-                    placeholder="Paste a TikTok/YouTube link or direct .mp4/.mov URL"
-                    type="text"
-                  />
-                </label>
-                <div className="editor-wide thumbnail-uploader">
-                  <span>Thumbnail image</span>
-                  {selectedVideo.thumbnailUrl ? (
-                    <img
-                      alt={`${selectedVideo.title || "Video"} thumbnail`}
-                      src={selectedVideo.thumbnailUrl}
-                    />
-                  ) : (
-                    <div className="thumbnail-empty">No thumbnail uploaded</div>
-                  )}
-                  <div className="admin-actions">
-                    <label className="button secondary file-button">
-                      Upload Thumbnail
-                      <input
-                        accept="image/*"
-                        onChange={(event) =>
-                          uploadVideoThumbnail(selectedVideo.id, event)
-                        }
-                        type="file"
-                      />
-                    </label>
-                    {selectedVideo.thumbnailUrl ? (
-                      <button
-                        className="button ghost"
-                        onClick={() =>
-                          updateVideo(selectedVideo.id, { thumbnailUrl: "" })
-                        }
-                        type="button"
-                      >
-                        Remove Thumbnail
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                <label>
-                  <span>Sort order</span>
-                  <input
-                    value={selectedVideo.sortOrder ?? 0}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, {
-                        sortOrder: Number(event.target.value),
-                      })
-                    }
-                    type="number"
-                  />
-                </label>
-                <label className="editor-wide">
-                  <span>Description</span>
-                  <textarea
-                    value={selectedVideo.description}
-                    onChange={(event) =>
-                      updateVideo(selectedVideo.id, {
-                        description: event.target.value,
-                      })
-                    }
-                    placeholder="A quick note to show below the video."
-                    rows={4}
-                  />
-                </label>
-              </div>
-            </form>
-          ) : null}
-        </div>
-      </div>
     </section>
   );
 }
@@ -1464,36 +1047,6 @@ function normalizeClaimStatus(value: unknown): ClaimStatus {
   }
 
   return "unknown";
-}
-
-function getVideoContentType(fileName: string) {
-  const lowerName = fileName.toLowerCase();
-
-  if (lowerName.endsWith(".mov")) {
-    return "video/quicktime";
-  }
-
-  if (lowerName.endsWith(".webm")) {
-    return "video/webm";
-  }
-
-  if (lowerName.endsWith(".m4v")) {
-    return "video/x-m4v";
-  }
-
-  return "video/mp4";
-}
-
-function isAllowedVideoFile(file: File) {
-  const lowerName = file.name.toLowerCase();
-
-  return (
-    file.type.startsWith("video/") ||
-    lowerName.endsWith(".mov") ||
-    lowerName.endsWith(".mp4") ||
-    lowerName.endsWith(".m4v") ||
-    lowerName.endsWith(".webm")
-  );
 }
 
 function isAllowedImageFile(file: File) {

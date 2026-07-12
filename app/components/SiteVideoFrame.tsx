@@ -25,6 +25,13 @@ export function SiteVideoFrame({ className = "", video }: SiteVideoFrameProps) {
   if (!isDirectVideo) {
     return (
       <div className={`external-video-preview ${className}`}>
+        {video.thumbnailUrl ? (
+          <img
+            alt=""
+            className="external-video-thumbnail"
+            src={video.thumbnailUrl}
+          />
+        ) : null}
         <span>Deals with Dennis</span>
         <p>{video.title || "Social video"}</p>
         <a href={video.videoUrl} rel="noopener" target="_blank">
