@@ -6,6 +6,7 @@ import {
   getAdminCookieName,
   isAdminSessionValueValid,
 } from "../../../lib/admin-auth";
+import { getSiteContent } from "../../../lib/site-content";
 import { getSiteVideos } from "../../../lib/video-store";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function AdminContentPage() {
   const videos = isAuthenticated
     ? await getSiteVideos([], { includeHidden: true })
     : [];
+  const content = isAuthenticated ? await getSiteContent() : null;
 
   return (
     <main className="admin-page">
@@ -62,7 +64,10 @@ export default async function AdminContentPage() {
               </p>
             </section>
 
-            <AdminContentManager initialVideos={videos} />
+            <AdminContentManager
+              initialContent={content}
+              initialVideos={videos}
+            />
           </>
         ) : (
           <AdminLogin />

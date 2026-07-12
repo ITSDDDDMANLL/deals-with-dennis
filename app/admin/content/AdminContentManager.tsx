@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import type { SiteContent, SocialLink } from "../../../lib/site-content";
+import { defaultSiteContent } from "../../../lib/site-content";
 import type { SiteVideo } from "../../../lib/video-store";
 import { SiteVideoFrame } from "../../components/SiteVideoFrame";
 
@@ -18,19 +20,26 @@ const blankVideo: SiteVideo = {
 };
 
 export function AdminContentManager({
+  initialContent,
   initialVideos,
 }: {
+  initialContent: SiteContent | null;
   initialVideos: SiteVideo[];
 }) {
+  const [content, setContent] = useState<SiteContent>(
+    initialContent ?? defaultSiteContent,
+  );
   const [videos, setVideos] = useState<SiteVideo[]>(initialVideos);
   const [selectedVideoId, setSelectedVideoId] = useState(
     initialVideos[0]?.id ?? "",
   );
   const [notice, setNotice] = useState("");
+  const [contentSaving, setContentSaving] = useState(false);
   const [videoSaving, setVideoSaving] = useState(false);
   const [videoUploadStatus, setVideoUploadStatus] = useState("");
 
   useEffect(() => {
+    void loadContent();
     void loadVideos();
   }, []);
 
@@ -43,6 +52,44 @@ export function AdminContentManager({
     setVideos((current) =>
       current.map((video) => (video.id === id ? { ...video, ...patch } : video)),
     );
+  }
+
+  function updateContent(patch: Partial<SiteContent>) {
+    setContent((current) => ({ ...current, ...patch }));
+  }
+
+  function updateSocialLink(index: number, patch: Partial<SocialLink>) {
+    updateContent({
+      socialLinks: content.socialLinks.map((link, currentIndex) =>
+        currentIndex === index ? { ...link, ...patch } : link,
+      ),
+    });
+  }
+
+  function addSocialLink() {
+    updateContent({
+      socialLinks: [...content.socialLinks, { href: "", label: "New link" }],
+    });
+  }
+
+  function removeSocialLink(index: number) {
+    updateContent({
+      socialLinks: content.socialLinks.filter((_, currentIndex) => currentIndex !== index),
+    });
+  }
+
+  async function loadContent() {
+    const response = await fetch("/api/admin/content");
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = (await response.json()) as { content?: SiteContent };
+
+    if (data.content) {
+      setContent(data.content);
+    }
   }
 
   async function loadVideos() {
@@ -58,6 +105,85 @@ export function AdminContentManager({
       setVideos(data.videos);
       setSelectedVideoId(data.videos[0].id);
     }
+  }
+
+  async function saveContentOnly() {
+    setContentSaving(true);
+
+    const response = await fetch("/api/admin/content", {
+      body: JSON.stringify({ content }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Website content save failed.");
+      setContentSaving(false);
+      return;
+    }
+
+    const result = (await response.json()) as { mode?: string };
+    setNotice(
+      result.mode === "supabase"
+        ? "Saved website content to Supabase."
+        : "Website content save did not reach Supabase. Check server environment variables.",
+    );
+    setContentSaving(false);
+  }
+
+  async function uploadProfileImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!isAllowedImageFile(file) || file.size > maxThumbnailSizeBytes) {
+      setNotice("Profile image must be an image file and 2.5 MB or smaller.");
+      return;
+    }
+
+    setVideoUploadStatus(`Uploading profile image ${file.name}...`);
+
+    const formData = new FormData();
+    formData.append("vehicleId", "site-profile");
+    formData.append("images", file);
+
+    const response = await fetch("/api/admin/images", {
+      body: formData,
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setNotice(result?.error ?? "Profile image upload failed.");
+      setVideoUploadStatus("");
+      return;
+    }
+
+    const result = (await response.json()) as {
+      imageUrls?: string[];
+      mode?: string;
+    };
+    const profileImageUrl = result.imageUrls?.[0] ?? "";
+
+    if (!profileImageUrl) {
+      setNotice("Profile image upload did not return an image URL.");
+      setVideoUploadStatus("");
+      return;
+    }
+
+    updateContent({ profileImageUrl });
+    setNotice(
+      `Profile image uploaded${result.mode === "supabase" ? " to Supabase Storage" : ""}. Click Save Website Content to publish it.`,
+    );
+    setVideoUploadStatus("");
   }
 
   async function saveVideosOnly() {
@@ -256,6 +382,14 @@ export function AdminContentManager({
           <h2>Media and homepage copy</h2>
         </div>
         <div className="admin-actions">
+          <button
+            className="button primary"
+            disabled={contentSaving}
+            onClick={saveContentOnly}
+            type="button"
+          >
+            {contentSaving ? "Saving..." : "Save Website Content"}
+          </button>
           <button className="button secondary" onClick={addVideo} type="button">
             Add Video
           </button>
@@ -272,24 +406,238 @@ export function AdminContentManager({
 
       {notice ? <p className="admin-notice">{notice}</p> : null}
 
-      <div className="content-placeholder-grid">
-        <article>
-          <p className="eyebrow">Videos</p>
-          <h3>Homepage social media</h3>
-          <p>
-            Manage the featured video card on the landing page. Paste a
-            TikTok/YouTube URL, upload a direct video, and set a thumbnail.
-          </p>
-        </article>
-        <article>
-          <p className="eyebrow">Coming next</p>
-          <h3>Photos and website text</h3>
-          <p>
-            This page is ready to hold profile photos, section copy, social
-            links, and other non-vehicle website content as separate controls.
-          </p>
-        </article>
-      </div>
+      <form className="admin-editor content-editor">
+        <div className="editor-head">
+          <div>
+            <p className="eyebrow">Public website</p>
+            <h3>Homepage text and photos</h3>
+          </div>
+          <button
+            className="button primary"
+            disabled={contentSaving}
+            onClick={saveContentOnly}
+            type="button"
+          >
+            {contentSaving ? "Saving..." : "Save Website Content"}
+          </button>
+        </div>
+
+        <section className="content-editor-section">
+          <h4>Header and hero</h4>
+          <div className="editor-grid">
+            <TextField
+              label="Brand label"
+              value={content.brandLabel}
+              onChange={(value) => updateContent({ brandLabel: value })}
+            />
+            <TextField
+              label="Brand subtitle"
+              value={content.brandSubLabel}
+              onChange={(value) => updateContent({ brandSubLabel: value })}
+            />
+            <TextField
+              label="Hero eyebrow"
+              value={content.heroEyebrow}
+              onChange={(value) => updateContent({ heroEyebrow: value })}
+            />
+            <TextField
+              label="Hero headline"
+              value={content.heroHeadline}
+              onChange={(value) => updateContent({ heroHeadline: value })}
+            />
+            <TextAreaField
+              label="Hero lead"
+              value={content.heroLead}
+              onChange={(value) => updateContent({ heroLead: value })}
+            />
+          </div>
+        </section>
+
+        <section className="content-editor-section">
+          <h4>Profile card</h4>
+          <div className="profile-content-editor">
+            <div className="thumbnail-uploader">
+              <span>Profile image</span>
+              <img alt={content.profileName} src={content.profileImageUrl} />
+              <div className="admin-actions">
+                <label className="button secondary file-button">
+                  Upload Profile Image
+                  <input
+                    accept="image/*"
+                    onChange={uploadProfileImage}
+                    type="file"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="editor-grid">
+              <TextField
+                label="Profile badge"
+                value={content.profileBadge}
+                onChange={(value) => updateContent({ profileBadge: value })}
+              />
+              <TextField
+                label="Profile name"
+                value={content.profileName}
+                onChange={(value) => updateContent({ profileName: value })}
+              />
+              <TextField
+                label="Profile subtitle"
+                value={content.profileSubtitle}
+                onChange={(value) => updateContent({ profileSubtitle: value })}
+              />
+              <TextField
+                label="Dealer name"
+                value={content.dealerName}
+                onChange={(value) => updateContent({ dealerName: value })}
+              />
+              <TextField
+                label="Dealer address"
+                value={content.dealerAddress}
+                onChange={(value) => updateContent({ dealerAddress: value })}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="content-editor-section">
+          <h4>Featured inventory and about</h4>
+          <div className="editor-grid">
+            <TextField
+              label="Inventory eyebrow"
+              value={content.inventoryEyebrow}
+              onChange={(value) => updateContent({ inventoryEyebrow: value })}
+            />
+            <TextField
+              label="Inventory title"
+              value={content.inventoryTitle}
+              onChange={(value) => updateContent({ inventoryTitle: value })}
+            />
+            <TextAreaField
+              label="Inventory body"
+              value={content.inventoryBody}
+              onChange={(value) => updateContent({ inventoryBody: value })}
+            />
+            <TextField
+              label="About eyebrow"
+              value={content.aboutEyebrow}
+              onChange={(value) => updateContent({ aboutEyebrow: value })}
+            />
+            <TextField
+              label="About headline"
+              value={content.aboutHeadline}
+              onChange={(value) => updateContent({ aboutHeadline: value })}
+            />
+            <TextAreaField
+              label="About paragraph 1"
+              value={content.aboutBodyOne}
+              onChange={(value) => updateContent({ aboutBodyOne: value })}
+            />
+            <TextAreaField
+              label="About paragraph 2"
+              value={content.aboutBodyTwo}
+              onChange={(value) => updateContent({ aboutBodyTwo: value })}
+            />
+          </div>
+        </section>
+
+        <section className="content-editor-section">
+          <div className="content-section-head">
+            <h4>Social links</h4>
+            <button className="button secondary" onClick={addSocialLink} type="button">
+              Add Link
+            </button>
+          </div>
+          <div className="social-link-editor">
+            {content.socialLinks.map((link, index) => (
+              <div className="social-link-row" key={`${link.label}-${index}`}>
+                <TextField
+                  label="Label"
+                  value={link.label}
+                  onChange={(value) => updateSocialLink(index, { label: value })}
+                />
+                <TextField
+                  label="URL"
+                  value={link.href}
+                  onChange={(value) => updateSocialLink(index, { href: value })}
+                />
+                <button
+                  className="button danger"
+                  onClick={() => removeSocialLink(index)}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="content-editor-section">
+          <h4>Contact, footer, and ticker</h4>
+          <div className="editor-grid">
+            <TextField
+              label="Contact eyebrow"
+              value={content.contactEyebrow}
+              onChange={(value) => updateContent({ contactEyebrow: value })}
+            />
+            <TextField
+              label="Contact headline"
+              value={content.contactHeadline}
+              onChange={(value) => updateContent({ contactHeadline: value })}
+            />
+            <TextAreaField
+              label="Contact body"
+              value={content.contactBody}
+              onChange={(value) => updateContent({ contactBody: value })}
+            />
+            <TextField
+              label="Contact address"
+              value={content.contactAddress}
+              onChange={(value) => updateContent({ contactAddress: value })}
+            />
+            <TextField
+              label="Hours"
+              value={content.contactHours}
+              onChange={(value) => updateContent({ contactHours: value })}
+            />
+            <TextField
+              label="Footer left"
+              value={content.footerLeft}
+              onChange={(value) => updateContent({ footerLeft: value })}
+            />
+            <TextField
+              label="Footer right"
+              value={content.footerRight}
+              onChange={(value) => updateContent({ footerRight: value })}
+            />
+            <TextAreaField
+              label="Ticker items"
+              value={content.tickerItems.join("\n")}
+              onChange={(value) =>
+                updateContent({
+                  tickerItems: value
+                    .split("\n")
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+            <TextField
+              label="Video placeholder title"
+              value={content.videoPlaceholderTitle}
+              onChange={(value) =>
+                updateContent({ videoPlaceholderTitle: value })
+              }
+            />
+            <TextAreaField
+              label="Video placeholder body"
+              value={content.videoPlaceholderBody}
+              onChange={(value) => updateContent({ videoPlaceholderBody: value })}
+            />
+          </div>
+        </section>
+      </form>
 
       <div className="admin-video-panel">
         <div className="editor-head">
@@ -454,6 +802,48 @@ export function AdminContentManager({
         </div>
       </div>
     </section>
+  );
+}
+
+function TextField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        type="text"
+      />
+    </label>
+  );
+}
+
+function TextAreaField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="editor-wide">
+      <span>{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={4}
+      />
+    </label>
   );
 }
 
