@@ -46,9 +46,11 @@ const claimStatusLabels: Record<ClaimStatus, string> = {
 };
 
 export function InventoryBrowser({
+  analyticsContext = "featured_inventory",
   vehicles,
   showAdvancedControls = false,
 }: {
+  analyticsContext?: "featured_inventory" | "inventory_page";
   vehicles: Vehicle[];
   showAdvancedControls?: boolean;
 }) {
@@ -145,10 +147,10 @@ export function InventoryBrowser({
 
     hasTrackedPageView.current = true;
     trackInventoryEvent("page_view", {
-      context: showAdvancedControls ? "inventory_page" : "featured_inventory",
+      context: analyticsContext,
       vehicleCount: vehicles.length,
     });
-  }, [showAdvancedControls, vehicles.length]);
+  }, [analyticsContext, vehicles.length]);
 
   useEffect(() => {
     const query = search.trim();
@@ -159,17 +161,19 @@ export function InventoryBrowser({
 
     const timeout = window.setTimeout(() => {
       trackInventoryEvent("inventory_search", {
+        context: analyticsContext,
         query,
         resultCount: filteredVehicles.length,
       });
     }, 700);
 
     return () => window.clearTimeout(timeout);
-  }, [filteredVehicles.length, search]);
+  }, [analyticsContext, filteredVehicles.length, search]);
 
   function updateSelectFilter(key: SelectFilterKey, value: string) {
     setSelectFilters((current) => ({ ...current, [key]: value }));
     trackInventoryEvent("inventory_filter", {
+      context: analyticsContext,
       field: key,
       value,
     });
@@ -192,14 +196,14 @@ export function InventoryBrowser({
       year: "all",
     });
     trackInventoryEvent("filter_reset", {
-      context: showAdvancedControls ? "inventory_page" : "featured_inventory",
+      context: analyticsContext,
     });
   }
 
   function openVehicle(vehicle: Vehicle) {
     setSelectedVehicle(vehicle);
     setSelectedImageIndex(0);
-    trackVehicleEvent("vehicle_view", vehicle);
+    trackVehicleEvent("vehicle_view", vehicle, { context: analyticsContext });
   }
 
   function closeVehicle() {
@@ -244,6 +248,7 @@ export function InventoryBrowser({
                   const value = event.target.value as PriceFilter;
                   setPriceFilter(value);
                   trackInventoryEvent("inventory_filter", {
+                    context: analyticsContext,
                     field: "price",
                     value,
                   });
@@ -317,7 +322,10 @@ export function InventoryBrowser({
                 className={viewMode === "list" ? "active" : ""}
                 onClick={() => {
                   setViewMode("list");
-                  trackInventoryEvent("view_mode_change", { value: "list" });
+                  trackInventoryEvent("view_mode_change", {
+                    context: analyticsContext,
+                    value: "list",
+                  });
                 }}
                 title="List view"
                 type="button"
@@ -329,7 +337,10 @@ export function InventoryBrowser({
                 className={viewMode === "grid" ? "active" : ""}
                 onClick={() => {
                   setViewMode("grid");
-                  trackInventoryEvent("view_mode_change", { value: "grid" });
+                  trackInventoryEvent("view_mode_change", {
+                    context: analyticsContext,
+                    value: "grid",
+                  });
                 }}
                 title="Grid view"
                 type="button"
@@ -344,7 +355,10 @@ export function InventoryBrowser({
                 onChange={(event) => {
                   const value = event.target.value as InventorySort;
                   setSort(value);
-                  trackInventoryEvent("inventory_sort", { value });
+                  trackInventoryEvent("inventory_sort", {
+                    context: analyticsContext,
+                    value,
+                  });
                 }}
               >
                 <option value="featured">Featured first</option>
@@ -367,6 +381,7 @@ export function InventoryBrowser({
                 onClick={() => {
                   setFilter(option);
                   trackInventoryEvent("inventory_filter", {
+                    context: analyticsContext,
                     field: "condition",
                     value: option,
                   });
@@ -454,9 +469,16 @@ export function InventoryBrowser({
         <VehicleDetailModal
           imageIndex={selectedImageIndex}
           onClose={closeVehicle}
-          onContactClick={(vehicle) => trackVehicleEvent("contact_click", vehicle)}
+          onContactClick={(vehicle) =>
+            trackVehicleEvent("contact_click", vehicle, {
+              context: analyticsContext,
+            })
+          }
           onPhotoBrowse={(vehicle, metadata) =>
-            trackVehicleEvent("photo_browse", vehicle, metadata)
+            trackVehicleEvent("photo_browse", vehicle, {
+              ...metadata,
+              context: analyticsContext,
+            })
           }
           onImageIndexChange={setSelectedImageIndex}
           vehicle={selectedVehicle}

@@ -40,7 +40,9 @@ export type AnalyticsSummary = {
     eventType: AnalyticsEventType;
   }>;
   events: AnalyticsEvent[];
+  featuredVehicleViews: number;
   filterActions: number;
+  inventoryPageVehicleViews: number;
   isAvailable: boolean;
   pageViews: number;
   photoBrowses: number;
@@ -153,10 +155,20 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       .map(([eventType, count]) => ({ count, eventType }))
       .sort((a, b) => b.count - a.count),
     events: events.slice(0, 60),
+    featuredVehicleViews: events.filter(
+      (event) =>
+        event.eventType === "vehicle_view" &&
+        event.metadata.context === "featured_inventory",
+    ).length,
     filterActions: events.filter(
       (event) =>
         event.eventType === "inventory_filter" ||
         event.eventType === "filter_reset",
+    ).length,
+    inventoryPageVehicleViews: events.filter(
+      (event) =>
+        event.eventType === "vehicle_view" &&
+        event.metadata.context === "inventory_page",
     ).length,
     isAvailable: true,
     pageViews: events.filter((event) => event.eventType === "page_view").length,
@@ -185,7 +197,9 @@ function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
     contactSubmits: 0,
     eventBreakdown: [],
     events: [],
+    featuredVehicleViews: 0,
     filterActions: 0,
+    inventoryPageVehicleViews: 0,
     isAvailable,
     pageViews: 0,
     photoBrowses: 0,

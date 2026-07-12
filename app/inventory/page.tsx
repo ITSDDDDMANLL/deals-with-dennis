@@ -38,7 +38,11 @@ export default async function InventoryPage() {
           </p>
         </section>
 
-        <InventoryBrowser vehicles={vehicles} showAdvancedControls />
+        <InventoryBrowser
+          analyticsContext="inventory_page"
+          vehicles={vehicles}
+          showAdvancedControls
+        />
       </div>
     </main>
   );

@@ -77,6 +77,14 @@ export default async function AdminAnalyticsPage() {
                   <strong>{summary.vehicleViews}</strong>
                 </div>
                 <div>
+                  <span>Featured views</span>
+                  <strong>{summary.featuredVehicleViews}</strong>
+                </div>
+                <div>
+                  <span>Inventory views</span>
+                  <strong>{summary.inventoryPageVehicleViews}</strong>
+                </div>
+                <div>
                   <span>Searches</span>
                   <strong>{summary.searches}</strong>
                 </div>

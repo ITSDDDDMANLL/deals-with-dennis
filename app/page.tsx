@@ -105,7 +105,10 @@ export default async function Home() {
               for every available listing.
             </p>
           </div>
-          <InventoryBrowser vehicles={vehicles} />
+          <InventoryBrowser
+            analyticsContext="featured_inventory"
+            vehicles={vehicles}
+          />
           <div className="inventory-more">
             <a className="button secondary" href="/inventory">
               View Inventory
