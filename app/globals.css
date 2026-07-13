@@ -1397,6 +1397,18 @@ h3 {
   font-weight: 800;
 }
 
+.retry-lead-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.retry-lead-action .button {
+  width: fit-content;
+}
+
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: var(--radius);

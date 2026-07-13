@@ -6,6 +6,7 @@ import {
   isAdminSessionValueValid,
 } from "../../../lib/admin-auth";
 import { getContactInquiries } from "../../../lib/inquiry-store";
+import { RetryLeadButton } from "../RetryLeadButton";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +148,9 @@ export default async function AdminInquiriesPage() {
                         <p>{inquiry.message || "No message provided."}</p>
                         {inquiry.appointmentNotes ? (
                           <p>Appointment notes: {inquiry.appointmentNotes}</p>
+                        ) : null}
+                        {inquiry.clientsInHandsStatus !== "sent" ? (
+                          <RetryLeadButton inquiryId={inquiry.id} />
                         ) : null}
                       </section>
                     </article>
