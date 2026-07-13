@@ -119,7 +119,12 @@ export default async function AdminAppointmentsPage() {
                         </div>
                         <div>
                           <dt>Clients in Hands</dt>
-                          <dd>{labelClientsInHandsStatus(appointment.clientsInHandsStatus)}</dd>
+                          <dd>
+                            {labelClientsInHandsStatus(appointment.clientsInHandsStatus)}
+                            {appointment.clientsInHandsError
+                              ? ` - ${appointment.clientsInHandsError}`
+                              : ""}
+                          </dd>
                         </div>
                       </dl>
 
