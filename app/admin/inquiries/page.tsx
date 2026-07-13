@@ -41,6 +41,7 @@ export default async function AdminInquiriesPage() {
             <a href="/admin">Inventory Admin</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/content">Content</a>
+            <a href="/admin/appointments">Appointments</a>
             <a href="/admin/history">History</a>
             <a href="/">Public Site</a>
             <a className="nav-cta" href="/inventory">
@@ -91,9 +92,16 @@ export default async function AdminInquiriesPage() {
                             {inquiry.source || "website"}
                           </span>
                           <h2>{inquiry.name || "No name"}</h2>
-                          <a href={`tel:${phoneHref(inquiry.phone)}`}>
-                            {inquiry.phone || "No phone"}
-                          </a>
+                          {inquiry.phone ? (
+                            <a href={`tel:${phoneHref(inquiry.phone)}`}>
+                              {inquiry.phone}
+                            </a>
+                          ) : null}
+                          {inquiry.email ? (
+                            <a href={`mailto:${inquiry.email}`}>
+                              {inquiry.email}
+                            </a>
+                          ) : null}
                         </div>
                         <time dateTime={inquiry.createdAt}>
                           {formatInquiryDate(inquiry.createdAt)}
@@ -109,11 +117,37 @@ export default async function AdminInquiriesPage() {
                           <dt>Source</dt>
                           <dd>{inquiry.source || "website"}</dd>
                         </div>
+                        <div>
+                          <dt>Preferred contact</dt>
+                          <dd>{labelContactMethod(inquiry.preferredContactMethod)}</dd>
+                        </div>
+                        <div>
+                          <dt>Appointment</dt>
+                          <dd>
+                            {inquiry.appointmentDate
+                              ? `${inquiry.appointmentDate} ${inquiry.appointmentTime || ""}`.trim()
+                              : "No appointment"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Stock #</dt>
+                          <dd>{inquiry.vehicleStockNumber || "N/A"}</dd>
+                        </div>
+                        <div>
+                          <dt>Clients in Hands</dt>
+                          <dd>
+                            {labelClientsInHandsStatus(inquiry.clientsInHandsStatus)}
+                            {inquiry.clientsInHandsError ? ` - ${inquiry.clientsInHandsError}` : ""}
+                          </dd>
+                        </div>
                       </dl>
 
                       <section className="inquiry-message">
                         <h3>Message</h3>
                         <p>{inquiry.message || "No message provided."}</p>
+                        {inquiry.appointmentNotes ? (
+                          <p>Appointment notes: {inquiry.appointmentNotes}</p>
+                        ) : null}
                       </section>
                     </article>
                   ))
@@ -169,4 +203,17 @@ function labelVehicleType(value: string) {
 
 function phoneHref(value: string) {
   return value.replace(/[^\d+]/g, "");
+}
+
+function labelContactMethod(value: string) {
+  if (value === "email") return "Email";
+  if (value === "sms") return "Text message";
+  return "Phone call";
+}
+
+function labelClientsInHandsStatus(value: string) {
+  if (value === "sent") return "Pushed";
+  if (value === "failed") return "Failed";
+  if (value === "skipped") return "Not configured";
+  return "Pending";
 }

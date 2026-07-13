@@ -40,6 +40,7 @@ export default async function AdminHistoryPage() {
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/content">Content</a>
             <a href="/admin/inquiries">Inquiries</a>
+            <a href="/admin/appointments">Appointments</a>
             <a href="/">Public Site</a>
             <a className="nav-cta" href="/inventory">
               View Inventory

@@ -738,6 +738,7 @@ function VehicleDetailModal({
               </div>
               <ContactForm
                 initialMessage={contactPrefill.message}
+                initialVehicle={contactPrefill.vehicle}
                 initialVehicleType={contactPrefill.vehicleType}
               />
             </div>
@@ -829,6 +830,14 @@ function getVehicleContactPrefill(vehicle: Vehicle) {
 
   return {
     message: lines.join("\n"),
+    vehicle: {
+      make: vehicle.make,
+      model: vehicle.model,
+      stockNumber: vehicle.stockNumber,
+      trim: vehicle.trim,
+      vin: vehicle.vin,
+      year: vehicle.year,
+    },
     vehicleType: vehicle.type,
   };
 }

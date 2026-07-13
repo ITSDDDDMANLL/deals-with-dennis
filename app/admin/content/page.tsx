@@ -40,6 +40,7 @@ export default async function AdminContentPage() {
             <a href="/admin">Inventory Admin</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/inquiries">Inquiries</a>
+            <a href="/admin/appointments">Appointments</a>
             <a href="/admin/history">History</a>
             <a href="/">Public Site</a>
             <a className="nav-cta" href="/inventory">

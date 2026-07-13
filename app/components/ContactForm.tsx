@@ -3,17 +3,31 @@
 import { FormEvent, useEffect, useState } from "react";
 
 type SubmitState = "idle" | "sending" | "sent" | "error";
+type PreferredContactMethod = "email" | "phone" | "sms";
 
 export function ContactForm({
   initialMessage = "",
+  initialVehicle = {},
   initialVehicleType = "",
 }: {
   initialMessage?: string;
+  initialVehicle?: {
+    make?: string;
+    model?: string;
+    stockNumber?: string;
+    trim?: string;
+    vin?: string;
+    year?: number;
+  };
   initialVehicleType?: string;
 }) {
   const [state, setState] = useState<SubmitState>("idle");
   const [vehicleType, setVehicleType] = useState(initialVehicleType);
   const [message, setMessage] = useState(initialMessage);
+  const [preferredContactMethod, setPreferredContactMethod] =
+    useState<PreferredContactMethod>("phone");
+  const [wantsAppointment, setWantsAppointment] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState(todayInputValue());
 
   useEffect(() => {
     setVehicleType(initialVehicleType);
@@ -75,6 +89,8 @@ export function ContactForm({
       form.reset();
       setVehicleType("");
       setMessage("");
+      setPreferredContactMethod("phone");
+      setWantsAppointment(false);
       setState("sent");
       return;
     }
@@ -90,7 +106,25 @@ export function ContactForm({
       </label>
       <label>
         <span>Phone number</span>
-        <input name="phone" required type="tel" />
+        <input name="phone" type="tel" />
+      </label>
+      <label>
+        <span>Email</span>
+        <input name="email" type="email" />
+      </label>
+      <label>
+        <span>Preferred contact</span>
+        <select
+          name="preferredContactMethod"
+          onChange={(event) =>
+            setPreferredContactMethod(event.target.value as PreferredContactMethod)
+          }
+          value={preferredContactMethod}
+        >
+          <option value="phone">Phone call</option>
+          <option value="email">Email</option>
+          <option value="sms">Text message</option>
+        </select>
       </label>
       <label>
         <span>Vehicle interest</span>
@@ -115,19 +149,105 @@ export function ContactForm({
           rows={5}
         />
       </label>
+      <div className="appointment-toggle">
+        <button
+          className={wantsAppointment ? "button primary" : "button secondary"}
+          onClick={() => setWantsAppointment((current) => !current)}
+          type="button"
+        >
+          {wantsAppointment ? "Appointment selected" : "Book appointment"}
+        </button>
+        <p>
+          Appointments are one hour. Available times follow dealership hours.
+        </p>
+      </div>
+      {wantsAppointment ? (
+        <div className="appointment-fields">
+          <label>
+            <span>Date</span>
+            <input
+              min={todayInputValue()}
+              name="appointmentDate"
+              onChange={(event) => setAppointmentDate(event.target.value)}
+              required={wantsAppointment}
+              type="date"
+              value={appointmentDate}
+            />
+          </label>
+          <label>
+            <span>Time</span>
+            <select name="appointmentTime" required={wantsAppointment}>
+              {appointmentSlots(appointmentDate).map((slot) => (
+                <option key={slot} value={slot}>
+                  {formatSlot(slot)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="wide-field">
+            <span>Appointment notes</span>
+            <input
+              name="appointmentNotes"
+              placeholder="Test drive, trade appraisal, or vehicle walk-around"
+              type="text"
+            />
+          </label>
+        </div>
+      ) : null}
+      <input name="vehicleYear" type="hidden" value={initialVehicle.year ?? ""} />
+      <input name="vehicleMake" type="hidden" value={initialVehicle.make ?? ""} />
+      <input name="vehicleModel" type="hidden" value={initialVehicle.model ?? ""} />
+      <input name="vehicleTrim" type="hidden" value={initialVehicle.trim ?? ""} />
+      <input name="vehicleStockNumber" type="hidden" value={initialVehicle.stockNumber ?? ""} />
+      <input name="vehicleVin" type="hidden" value={initialVehicle.vin ?? ""} />
       <button className="button primary" disabled={state === "sending"}>
         {state === "sending" ? "Sending..." : "Submit Inquiry"}
       </button>
       <p className="form-note">
-        By submitting, you agree to be contacted by phone or text about this
-        inquiry.
+        By submitting, you agree to be contacted about this inquiry. If you
+        choose text message, Dennis will confirm manually.
       </p>
       {state === "sent" ? (
-        <p className="form-success">Thanks. Your inquiry was received.</p>
+        <p className="form-success">
+          Thanks. Your inquiry was received
+          {wantsAppointment ? " and your appointment request was recorded." : "."}
+        </p>
       ) : null}
       {state === "error" ? (
         <p className="form-error">Something went wrong. Please try again.</p>
       ) : null}
     </form>
   );
+}
+
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function appointmentSlots(dateValue: string) {
+  const date = dateValue ? new Date(`${dateValue}T12:00:00`) : new Date();
+  const day = date.getDay();
+  const [openHour, closeHour] =
+    day === 0 ? [11, 17] : day === 5 || day === 6 ? [9, 18] : [9, 19];
+  const slots: string[] = [];
+
+  for (let hour = openHour; hour <= closeHour - 1; hour += 1) {
+    slots.push(`${String(hour).padStart(2, "0")}:00`);
+    if (hour < closeHour - 1) {
+      slots.push(`${String(hour).padStart(2, "0")}:30`);
+    }
+  }
+
+  return slots;
+}
+
+function formatSlot(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+
+  return new Intl.DateTimeFormat("en-CA", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }

@@ -1345,6 +1345,32 @@ h3 {
   resize: vertical;
 }
 
+.appointment-toggle {
+  display: grid;
+  gap: 8px;
+}
+
+.appointment-toggle .button {
+  width: fit-content;
+}
+
+.appointment-toggle p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.appointment-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.appointment-fields .wide-field {
+  grid-column: 1 / -1;
+}
+
 .contact-form .button {
   width: 100%;
 }
@@ -1496,8 +1522,9 @@ h3 {
 .inquiry-card-head a {
   width: fit-content;
   color: var(--accent-dark);
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 950;
+  overflow-wrap: anywhere;
 }
 
 .inquiry-card-head time {
@@ -2612,6 +2639,7 @@ h3 {
 
   .history-summary,
   .analytics-summary,
+  .appointment-fields,
   .history-meta {
     grid-template-columns: 1fr;
   }
