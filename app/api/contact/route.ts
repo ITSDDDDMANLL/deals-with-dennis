@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: "Unable to save inquiry." },
+        { error: "Unable to save inquiry.", details: error.message },
         { status: 500 },
       );
     }
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   });
 
   if (supabase) {
-    await supabase
+    const { error } = await supabase
       .from("contact_inquiries")
       .update({
         clients_in_hands_deal_id: clientsInHands.mode === "sent" ? clientsInHands.dealId : null,
@@ -137,6 +137,16 @@ export async function POST(request: Request) {
         clients_in_hands_status: clientsInHands.mode,
       })
       .eq("id", inquiryId);
+
+    if (error) {
+      return NextResponse.json(
+        {
+          error: "Inquiry saved, but CRM status update failed.",
+          details: error.message,
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const notification = await sendInquiryNotification(inquiry, clientsInHands);

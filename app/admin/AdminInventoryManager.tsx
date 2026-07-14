@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
+import { readErrorMessage } from "../utils/read-error-message";
 
 type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
@@ -211,16 +212,22 @@ export function AdminInventoryManager({
     formData.set("vehicleId", id);
     acceptedFiles.forEach((file) => formData.append("images", file));
 
-    const response = await fetch("/api/admin/images", {
-      body: formData,
-      method: "POST",
-    });
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/images", {
+        body: formData,
+        method: "POST",
+      });
+    } catch (error) {
+      setNotice(
+        `Image upload failed before reaching the server: ${getErrorMessage(error)}`,
+      );
+      return;
+    }
 
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Image upload failed.");
+      setNotice(await readErrorMessage(response, "Image upload failed."));
       return;
     }
 
@@ -293,6 +300,7 @@ export function AdminInventoryManager({
     const response = await fetch("/api/admin/inventory");
 
     if (!response.ok) {
+      setNotice(await readErrorMessage(response, "Inventory load failed."));
       return;
     }
 
@@ -313,17 +321,24 @@ export function AdminInventoryManager({
   async function saveVehiclesOnly() {
     setSaving(true);
 
-    const inventoryResponse = await fetch("/api/admin/inventory", {
-      body: JSON.stringify({ vehicles }),
-      headers: { "Content-Type": "application/json" },
-      method: "PUT",
-    });
+    let inventoryResponse: Response;
+
+    try {
+      inventoryResponse = await fetch("/api/admin/inventory", {
+        body: JSON.stringify({ vehicles }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      });
+    } catch (error) {
+      setNotice(
+        `Vehicle save failed before reaching the server: ${getErrorMessage(error)}`,
+      );
+      setSaving(false);
+      return;
+    }
 
     if (!inventoryResponse.ok) {
-      const result = (await inventoryResponse.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Vehicle save failed.");
+      setNotice(await readErrorMessage(inventoryResponse, "Vehicle save failed."));
       setSaving(false);
       return;
     }
@@ -905,6 +920,10 @@ export function AdminInventoryManager({
       </div>
     </section>
   );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function fieldLabel(field: EditableField) {

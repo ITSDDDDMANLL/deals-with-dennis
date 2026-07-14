@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { readErrorMessage } from "../utils/read-error-message";
 
 type SubmitState = "idle" | "sending" | "sent" | "error";
 type PreferredContactMethod = "email" | "phone" | "sms";
@@ -28,6 +29,7 @@ export function ContactForm({
     useState<PreferredContactMethod>("phone");
   const [wantsAppointment, setWantsAppointment] = useState(false);
   const [appointmentDate, setAppointmentDate] = useState(todayInputValue());
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     setVehicleType(initialVehicleType);
@@ -75,15 +77,26 @@ export function ContactForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setState("sending");
+    setErrorMessage("");
 
     const form = event.currentTarget;
     const payload = Object.fromEntries(new FormData(form).entries());
 
-    const response = await fetch("/api/contact", {
-      body: JSON.stringify(payload),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
+    let response: Response;
+
+    try {
+      response = await fetch("/api/contact", {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    } catch (error) {
+      setErrorMessage(
+        `Inquiry failed before reaching the server: ${getErrorMessage(error)}`,
+      );
+      setState("error");
+      return;
+    }
 
     if (response.ok) {
       form.reset();
@@ -95,6 +108,7 @@ export function ContactForm({
       return;
     }
 
+    setErrorMessage(await readErrorMessage(response, "Inquiry submission failed."));
     setState("error");
   }
 
@@ -214,10 +228,16 @@ export function ContactForm({
         </p>
       ) : null}
       {state === "error" ? (
-        <p className="form-error">Something went wrong. Please try again.</p>
+        <p className="form-error">
+          {errorMessage || "Something went wrong. Please try again."}
+        </p>
       ) : null}
     </form>
   );
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function todayInputValue() {

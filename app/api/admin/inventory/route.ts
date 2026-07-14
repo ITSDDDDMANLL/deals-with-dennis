@@ -33,9 +33,19 @@ export async function PUT(request: Request) {
     );
   }
 
-  const result = await saveInventoryVehicles(body.vehicles);
+  try {
+    const result = await saveInventoryVehicles(body.vehicles);
 
-  return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Vehicle save failed.",
+        details: getErrorMessage(error),
+      },
+      { status: 500 },
+    );
+  }
 }
 
 async function isAuthenticated() {
@@ -43,4 +53,8 @@ async function isAuthenticated() {
   const value = cookieStore.get(getAdminCookieName())?.value;
 
   return isAdminSessionValueValid(value);
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

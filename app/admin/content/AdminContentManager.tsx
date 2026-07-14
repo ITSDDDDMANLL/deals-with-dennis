@@ -5,6 +5,7 @@ import type { SiteContent, SocialLink } from "../../../lib/site-content";
 import { defaultSiteContent } from "../../../lib/site-content";
 import type { SiteVideo } from "../../../lib/video-store";
 import { SiteVideoFrame } from "../../components/SiteVideoFrame";
+import { readErrorMessage } from "../../utils/read-error-message";
 
 const maxVideoSizeBytes = 250_000_000;
 const maxThumbnailSizeBytes = 2_500_000;
@@ -159,10 +160,7 @@ export function AdminContentManager({
     });
 
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Profile image upload failed.");
+      setNotice(await readErrorMessage(response, "Profile image upload failed."));
       setVideoUploadStatus("");
       return;
     }
@@ -196,10 +194,7 @@ export function AdminContentManager({
     });
 
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Video save failed.");
+      setNotice(await readErrorMessage(response, "Video save failed."));
       setVideoSaving(false);
       return;
     }
@@ -251,10 +246,7 @@ export function AdminContentManager({
     });
 
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Video upload failed.");
+      setNotice(await readErrorMessage(response, "Video upload failed."));
       setVideoUploadStatus("");
       return;
     }
@@ -278,7 +270,12 @@ export function AdminContentManager({
       });
 
       if (!uploadResponse.ok) {
-        setNotice("Video upload failed while sending the file to Supabase.");
+        setNotice(
+          await readErrorMessage(
+            uploadResponse,
+            "Video upload failed while sending the file to Supabase.",
+          ),
+        );
         setVideoUploadStatus("");
         return;
       }
@@ -321,10 +318,7 @@ export function AdminContentManager({
     });
 
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setNotice(result?.error ?? "Thumbnail upload failed.");
+      setNotice(await readErrorMessage(response, "Thumbnail upload failed."));
       setVideoUploadStatus("");
       return;
     }

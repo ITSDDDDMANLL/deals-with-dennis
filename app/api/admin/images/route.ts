@@ -44,6 +44,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ imageUrls, mode: "local" });
   }
 
+  const bucketError = await ensureImageBucket(supabase);
+
+  if (bucketError) {
+    return NextResponse.json(
+      { error: "Image upload failed.", details: bucketError },
+      { status: 500 },
+    );
+  }
+
   const imageUrls: string[] = [];
 
   for (const file of files) {
@@ -59,7 +68,10 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json(
-        { error: `Unable to upload ${file.name}.` },
+        {
+          error: `Unable to upload ${file.name}.`,
+          details: error.message,
+        },
         { status: 500 },
       );
     }
@@ -69,6 +81,43 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ imageUrls, mode: "supabase" });
+}
+
+async function ensureImageBucket(
+  supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+) {
+  const bucketOptions = {
+    allowedMimeTypes: [
+      "image/gif",
+      "image/heic",
+      "image/heif",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ],
+    fileSizeLimit: maxImageSizeBytes,
+    public: true,
+  };
+  const { error } = await supabase.storage.createBucket(bucketName, bucketOptions);
+
+  if (error?.message.toLowerCase().includes("already exists")) {
+    const { error: updateError } = await supabase.storage.updateBucket(
+      bucketName,
+      bucketOptions,
+    );
+
+    if (updateError) {
+      return `Unable to update image bucket "${bucketName}": ${updateError.message}`;
+    }
+
+    return "";
+  }
+
+  if (error) {
+    return `Unable to prepare image bucket "${bucketName}": ${error.message}`;
+  }
+
+  return "";
 }
 
 async function isAuthenticated() {
