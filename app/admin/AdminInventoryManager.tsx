@@ -208,15 +208,19 @@ export function AdminInventoryManager({
 
     setNotice(`Uploading ${acceptedFiles.length} image${acceptedFiles.length === 1 ? "" : "s"}...`);
 
-    const formData = new FormData();
-    formData.set("vehicleId", id);
-    acceptedFiles.forEach((file) => formData.append("images", file));
-
     let response: Response;
 
     try {
       response = await fetch("/api/admin/images", {
-        body: formData,
+        body: JSON.stringify({
+          files: acceptedFiles.map((file) => ({
+            contentType: file.type || getImageContentType(file.name),
+            fileName: file.name,
+            fileSize: file.size,
+          })),
+          vehicleId: id,
+        }),
+        headers: { "Content-Type": "application/json" },
         method: "POST",
       });
     } catch (error) {
@@ -234,8 +238,52 @@ export function AdminInventoryManager({
     const result = (await response.json()) as {
       imageUrls?: string[];
       mode?: string;
+      uploads?: {
+        contentType?: string;
+        fileName?: string;
+        imageUrl?: string;
+        signedUrl?: string;
+      }[];
     };
-    const imageUrls = result.imageUrls ?? [];
+
+    const uploads = result.uploads ?? [];
+    const imageUrls: string[] = [...(result.imageUrls ?? [])];
+
+    for (let index = 0; index < uploads.length; index += 1) {
+      const upload = uploads[index];
+      const file = acceptedFiles[index];
+
+      if (!upload.signedUrl || !upload.imageUrl || !file) {
+        setNotice(`Image upload failed: missing upload URL for ${file?.name ?? "file"}.`);
+        return;
+      }
+
+      setNotice(
+        `Uploading ${file.name} (${index + 1}/${uploads.length}) to Supabase...`,
+      );
+
+      const uploadForm = new FormData();
+      uploadForm.append("cacheControl", "3600");
+      uploadForm.append("", file);
+      const uploadResponse = await fetch(upload.signedUrl, {
+        body: uploadForm,
+        headers: { "x-upsert": "false" },
+        method: "PUT",
+      });
+
+      if (!uploadResponse.ok) {
+        setNotice(
+          await readErrorMessage(
+            uploadResponse,
+            `Image upload failed while sending ${file.name} to Supabase.`,
+          ),
+        );
+        return;
+      }
+
+      imageUrls.push(upload.imageUrl);
+    }
+
     updateVehicle(id, {
       imageUrls: [...currentImages, ...imageUrls],
     });
@@ -924,6 +972,18 @@ export function AdminInventoryManager({
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function getImageContentType(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith(".png")) return "image/png";
+  if (lowerName.endsWith(".webp")) return "image/webp";
+  if (lowerName.endsWith(".gif")) return "image/gif";
+  if (lowerName.endsWith(".heic")) return "image/heic";
+  if (lowerName.endsWith(".heif")) return "image/heif";
+
+  return "image/jpeg";
 }
 
 function fieldLabel(field: EditableField) {

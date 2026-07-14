@@ -10,9 +10,21 @@ const maxImagesPerRequest = 20;
 const maxImageSizeBytes = 12_000_000;
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 
+type ImageUploadRequestFile = {
+  contentType?: string;
+  fileName?: string;
+  fileSize?: number;
+};
+
 export async function POST(request: Request) {
   if (!(await isAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return createImageUploadTargets(request);
   }
 
   const formData = await request.formData();
@@ -83,6 +95,94 @@ export async function POST(request: Request) {
   return NextResponse.json({ imageUrls, mode: "supabase" });
 }
 
+async function createImageUploadTargets(request: Request) {
+  const body = await request.json().catch(() => null);
+  const vehicleId = String(body?.vehicleId ?? "vehicle");
+  const files: ImageUploadRequestFile[] = Array.isArray(body?.files)
+    ? body.files.slice(0, maxImagesPerRequest)
+    : [];
+
+  if (!files.length) {
+    return NextResponse.json({ uploads: [] });
+  }
+
+  const invalidFile = files.find((file) => {
+    const fileName = String(file?.fileName ?? "");
+    const contentType = String(file?.contentType ?? getContentType(fileName));
+    const fileSize = Number(file?.fileSize ?? 0);
+
+    return (
+      !isAllowedImage(fileName, contentType) ||
+      !fileSize ||
+      fileSize > maxImageSizeBytes
+    );
+  });
+
+  if (invalidFile) {
+    return NextResponse.json(
+      { error: "Images must be image files and 12 MB or smaller." },
+      { status: 400 },
+    );
+  }
+
+  const supabase = createSupabaseAdmin();
+
+  if (!supabase) {
+    return NextResponse.json(
+      {
+        error: "Image upload failed.",
+        details: "Supabase is required for direct image uploads.",
+      },
+      { status: 500 },
+    );
+  }
+
+  const bucketError = await ensureImageBucket(supabase);
+
+  if (bucketError) {
+    return NextResponse.json(
+      { error: "Image upload failed.", details: bucketError },
+      { status: 500 },
+    );
+  }
+
+  const uploads = [];
+
+  for (const file of files) {
+    const fileName = String(file.fileName);
+    const contentType = String(file.contentType || getContentType(fileName));
+    const extension = getExtension({ name: fileName, type: contentType });
+    const path = `${sanitizePathPart(vehicleId)}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .createSignedUploadUrl(path);
+
+    if (error || !data?.signedUrl) {
+      return NextResponse.json(
+        {
+          error: `Unable to prepare upload for ${fileName}.`,
+          details: error?.message ?? "Supabase did not return a signed URL.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const { data: publicData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(path);
+
+    uploads.push({
+      contentType,
+      fileName,
+      imageUrl: publicData.publicUrl,
+      path,
+      signedUrl: data.signedUrl,
+    });
+  }
+
+  return NextResponse.json({ mode: "supabase", uploads });
+}
+
 async function ensureImageBucket(
   supabase: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
 ) {
@@ -132,7 +232,7 @@ async function fileToDataUrl(file: File) {
   return `data:${file.type};base64,${bytes.toString("base64")}`;
 }
 
-function getExtension(file: File) {
+function getExtension(file: Pick<File, "name" | "type">) {
   const fromName = file.name.split(".").pop()?.toLowerCase();
 
   if (fromName && /^[a-z0-9]+$/.test(fromName)) {
@@ -147,8 +247,24 @@ function sanitizePathPart(value: string) {
 }
 
 function isAllowedImageFile(file: File) {
+  return isAllowedImage(file.name, file.type);
+}
+
+function isAllowedImage(fileName: string, contentType: string) {
   return (
-    file.type.startsWith("image/") ||
-    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name)
+    contentType.startsWith("image/") ||
+    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(fileName)
   );
+}
+
+function getContentType(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith(".png")) return "image/png";
+  if (lowerName.endsWith(".webp")) return "image/webp";
+  if (lowerName.endsWith(".gif")) return "image/gif";
+  if (lowerName.endsWith(".heic")) return "image/heic";
+  if (lowerName.endsWith(".heif")) return "image/heif";
+
+  return "image/jpeg";
 }
