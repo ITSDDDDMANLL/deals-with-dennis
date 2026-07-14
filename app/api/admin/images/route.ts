@@ -7,7 +7,7 @@ import {
 import { createSupabaseAdmin } from "../../../../lib/supabase/admin";
 
 const maxImagesPerRequest = 20;
-const maxImageSizeBytes = 2_500_000;
+const maxImageSizeBytes = 12_000_000;
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 
 export async function POST(request: Request) {
@@ -27,12 +27,12 @@ export async function POST(request: Request) {
   }
 
   const invalidFile = files.find(
-    (file) => !file.type.startsWith("image/") || file.size > maxImageSizeBytes,
+    (file) => !isAllowedImageFile(file) || file.size > maxImageSizeBytes,
   );
 
   if (invalidFile) {
     return NextResponse.json(
-      { error: "Images must be image files and 2.5 MB or smaller." },
+      { error: "Images must be image files and 12 MB or smaller." },
       { status: 400 },
     );
   }
@@ -95,4 +95,11 @@ function getExtension(file: File) {
 
 function sanitizePathPart(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function isAllowedImageFile(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name)
+  );
 }

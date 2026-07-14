@@ -9,6 +9,7 @@ import { getContactInquiries } from "../../../lib/inquiry-store";
 import { RetryLeadButton } from "../RetryLeadButton";
 
 export const dynamic = "force-dynamic";
+const vancouverTimeZone = "America/Vancouver";
 
 export const metadata: Metadata = {
   robots: {
@@ -178,19 +179,37 @@ function formatInquiryDate(value: string) {
 
   return new Intl.DateTimeFormat("en-CA", {
     dateStyle: "medium",
+    timeZone: vancouverTimeZone,
     timeStyle: "short",
   }).format(date);
 }
 
 function isSameLocalDate(value: string, compareDate: Date) {
   const date = new Date(value);
+  const dateParts = vancouverDateParts(date);
+  const compareParts = vancouverDateParts(compareDate);
 
   return (
     !Number.isNaN(date.getTime()) &&
-    date.getFullYear() === compareDate.getFullYear() &&
-    date.getMonth() === compareDate.getMonth() &&
-    date.getDate() === compareDate.getDate()
+    dateParts.year === compareParts.year &&
+    dateParts.month === compareParts.month &&
+    dateParts.day === compareParts.day
   );
+}
+
+function vancouverDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: vancouverTimeZone,
+    year: "numeric",
+  }).formatToParts(date);
+
+  return {
+    day: parts.find((part) => part.type === "day")?.value ?? "",
+    month: parts.find((part) => part.type === "month")?.value ?? "",
+    year: parts.find((part) => part.type === "year")?.value ?? "",
+  };
 }
 
 function labelVehicleType(value: string) {

@@ -2367,6 +2367,15 @@ h3 {
   opacity: 0;
 }
 
+.visually-hidden-file {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-9999px);
+}
+
 .admin-notice {
   margin: 0;
   border-left: 4px solid var(--gold);

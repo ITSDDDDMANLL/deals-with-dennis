@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
 
 type EditableVehicle = Vehicle & {
@@ -8,7 +8,7 @@ type EditableVehicle = Vehicle & {
 };
 
 const maxVehicleImages = 20;
-const maxImageSizeBytes = 2_500_000;
+const maxImageSizeBytes = 12_000_000;
 
 const blankVehicle: EditableVehicle = {
   id: "new-vehicle",
@@ -82,6 +82,7 @@ export function AdminInventoryManager({
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
   const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+  const vehicleImageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     void loadInventory();
@@ -184,17 +185,23 @@ export function AdminInventoryManager({
       return;
     }
 
-    const acceptedFiles = files
-      .filter((file) => file.type.startsWith("image/"))
-      .slice(0, openSlots);
+    const acceptedFiles = files.filter(isAllowedImageFile).slice(0, openSlots);
+
+    if (!acceptedFiles.length) {
+      setNotice("Please choose image files from your photo library.");
+      return;
+    }
+
     const oversized = acceptedFiles.find(
       (file) => file.size > maxImageSizeBytes,
     );
 
     if (oversized) {
-      setNotice("Each image must be 2.5 MB or smaller for this preview version.");
+      setNotice("Each image must be 12 MB or smaller.");
       return;
     }
+
+    setNotice(`Uploading ${acceptedFiles.length} image${acceptedFiles.length === 1 ? "" : "s"}...`);
 
     const formData = new FormData();
     formData.set("vehicleId", id);
@@ -649,17 +656,23 @@ export function AdminInventoryManager({
                       {maxVehicleImages} uploaded
                     </p>
                   </div>
-                  <label className="button secondary file-button">
+                  <button
+                    className="button secondary"
+                    onClick={() => vehicleImageInputRef.current?.click()}
+                    type="button"
+                  >
                     Upload Images
-                    <input
-                      accept="image/*"
-                      multiple
-                      onChange={(event) =>
-                        uploadVehicleImages(selectedVehicle.id, event)
-                      }
-                      type="file"
-                    />
-                  </label>
+                  </button>
+                  <input
+                    accept="image/*"
+                    className="visually-hidden-file"
+                    multiple
+                    onChange={(event) =>
+                      uploadVehicleImages(selectedVehicle.id, event)
+                    }
+                    ref={vehicleImageInputRef}
+                    type="file"
+                  />
                 </div>
 
                 {(selectedVehicle.imageUrls?.length ?? 0) > 0 ? (
@@ -1050,5 +1063,8 @@ function normalizeClaimStatus(value: unknown): ClaimStatus {
 }
 
 function isAllowedImageFile(file: File) {
-  return file.type.startsWith("image/");
+  return (
+    file.type.startsWith("image/") ||
+    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name)
+  );
 }
