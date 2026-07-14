@@ -2367,13 +2367,34 @@ h3 {
   opacity: 0;
 }
 
-.visually-hidden-file {
+.admin-file-input {
   position: fixed;
+  left: -100vw;
+  top: 0;
   width: 1px;
   height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-9999px);
+  opacity: 0.01;
+}
+
+.image-drop-zone {
+  display: grid;
+  gap: 6px;
+  border: 2px dashed rgba(21, 18, 15, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 250, 241, 0.72);
+  color: var(--muted);
+  padding: 18px;
+  text-align: center;
+}
+
+.image-drop-zone strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.image-drop-zone span {
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .admin-notice {

@@ -172,6 +172,10 @@ export function AdminInventoryManager({
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
 
+    await uploadVehicleImageFiles(id, files);
+  }
+
+  async function uploadVehicleImageFiles(id: string, files: File[]) {
     if (!files.length) {
       return;
     }
@@ -665,7 +669,7 @@ export function AdminInventoryManager({
                   </button>
                   <input
                     accept="image/*"
-                    className="visually-hidden-file"
+                    className="admin-file-input"
                     multiple
                     onChange={(event) =>
                       uploadVehicleImages(selectedVehicle.id, event)
@@ -673,6 +677,23 @@ export function AdminInventoryManager({
                     ref={vehicleImageInputRef}
                     type="file"
                   />
+                </div>
+                <div
+                  className="image-drop-zone"
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    void uploadVehicleImageFiles(
+                      selectedVehicle.id,
+                      Array.from(event.dataTransfer.files),
+                    );
+                  }}
+                >
+                  <strong>Drop photos here</strong>
+                  <span>Or click Upload Images. JPG, PNG, WebP, HEIC up to 12 MB each.</span>
                 </div>
 
                 {(selectedVehicle.imageUrls?.length ?? 0) > 0 ? (
