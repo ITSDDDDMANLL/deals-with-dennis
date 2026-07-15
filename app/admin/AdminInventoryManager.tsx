@@ -711,8 +711,19 @@ export function AdminInventoryManager({
             <p className="admin-empty">No vehicles match these filters.</p>
           )}
 
-        {selectedVehicle && isEditorOpen ? (
-          <form className="admin-editor">
+          {selectedVehicle && isEditorOpen ? (
+            <div
+              aria-modal="true"
+              className="admin-editor-modal"
+              role="dialog"
+            >
+              <button
+                aria-label="Close editor"
+                className="admin-editor-backdrop"
+                onClick={() => setIsEditorOpen(false)}
+                type="button"
+              />
+              <form className="admin-editor admin-editor-dialog">
             <div className="editor-head">
               <div>
                 <p className="eyebrow">Edit vehicle</p>
@@ -989,8 +1000,9 @@ export function AdminInventoryManager({
                 {saving ? "Saving..." : "Save Vehicles"}
               </button>
             </div>
-          </form>
-        ) : null}
+              </form>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

@@ -2651,6 +2651,34 @@ h3 {
   padding: 18px;
 }
 
+.admin-editor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.admin-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(21, 18, 15, 0.58);
+  cursor: pointer;
+  backdrop-filter: blur(5px);
+}
+
+.admin-editor-dialog {
+  position: relative;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 2px solid var(--ink);
+  box-shadow: 12px 14px 0 rgba(21, 18, 15, 0.24);
+}
+
 .admin-video-panel {
   display: grid;
   gap: 16px;
@@ -3367,6 +3395,14 @@ h3 {
   .editor-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-editor-modal {
+    padding: 10px;
+  }
+
+  .admin-editor-dialog {
+    max-height: calc(100vh - 20px);
   }
 
   .admin-inventory-board-head {
