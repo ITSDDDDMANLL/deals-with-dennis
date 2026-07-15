@@ -58,9 +58,9 @@ export default async function AdminAnalyticsPage() {
                 <h1>Website analytics</h1>
               </div>
               <p>
-                Track page views, searches, filters, vehicle detail opens,
-                photo browsing, Contact Dennis clicks, and submitted inquiries.
-                Data shown here covers the last 30 days.
+                Track what is turning attention into leads. Start with hot
+                vehicles, contact intent, and the latest activity from the last
+                30 days.
               </p>
             </section>
 
@@ -73,85 +73,85 @@ export default async function AdminAnalyticsPage() {
                 </div>
               ) : null}
 
-              <div className="history-summary analytics-summary">
-                <div>
-                  <span>Vehicle views</span>
-                  <strong>{summary.vehicleViews}</strong>
+              <section className="analytics-sales-snapshot">
+                <div className="analytics-snapshot-copy">
+                  <p className="eyebrow">Sales snapshot</p>
+                  <h2>What needs attention now</h2>
+                  <p>
+                    Leads and contact clicks are the strongest buying signals.
+                    Vehicle views show where attention is building before people
+                    reach out.
+                  </p>
                 </div>
-                <div>
-                  <span>Featured views</span>
-                  <strong>{summary.featuredVehicleViews}</strong>
+                <div className="analytics-priority-grid">
+                  <AnalyticsMetricCard
+                    label="Submitted leads"
+                    value={summary.contactSubmits}
+                    note="People who filled the form"
+                    tone="hot"
+                  />
+                  <AnalyticsMetricCard
+                    label="Contact clicks"
+                    value={summary.contactClicks}
+                    note="Clicked Contact Dennis from a vehicle"
+                    tone="warm"
+                  />
+                  <AnalyticsMetricCard
+                    label="Vehicle views"
+                    value={summary.vehicleViews}
+                    note={`${summary.featuredVehicleViews} from featured, ${summary.inventoryPageVehicleViews} from inventory`}
+                    tone="neutral"
+                  />
+                  <AnalyticsMetricCard
+                    label="Click conversion"
+                    value={`${conversionRate}%`}
+                    note="Contact clicks divided by vehicle views"
+                    tone="neutral"
+                  />
                 </div>
-                <div>
-                  <span>Inventory views</span>
-                  <strong>{summary.inventoryPageVehicleViews}</strong>
-                </div>
-                <div>
-                  <span>Searches</span>
-                  <strong>{summary.searches}</strong>
-                </div>
-                <div>
-                  <span>Filter actions</span>
-                  <strong>{summary.filterActions}</strong>
-                </div>
-                <div>
-                  <span>Photo browses</span>
-                  <strong>{summary.photoBrowses}</strong>
-                </div>
-                <div>
-                  <span>Contact clicks</span>
-                  <strong>{summary.contactClicks}</strong>
-                </div>
-                <div>
-                  <span>Submitted leads</span>
-                  <strong>{summary.contactSubmits}</strong>
-                </div>
-                <div>
-                  <span>Click conversion</span>
-                  <strong>{conversionRate}%</strong>
-                </div>
-                <div>
-                  <span>Today</span>
-                  <strong>{summary.todayEvents}</strong>
-                </div>
-              </div>
+              </section>
 
               <div className="analytics-grid">
                 <section className="analytics-card">
                   <div className="analytics-card-head">
                     <div>
-                      <p className="eyebrow">Sales signal</p>
-                      <h2>Vehicle interest</h2>
+                      <p className="eyebrow">Hot vehicles</p>
+                      <h2>Follow-up priority</h2>
                     </div>
                     <span>{summary.topVehicles.length} vehicles</span>
                   </div>
 
                   {summary.topVehicles.length ? (
-                    <div className="analytics-table" role="table">
-                      <div className="analytics-table-row heading" role="row">
-                        <span>Vehicle</span>
-                        <span>Views</span>
-                        <span>Contacts</span>
-                        <span>Rate</span>
-                      </div>
+                    <div className="hot-vehicle-list">
                       {summary.topVehicles.map((vehicle) => (
-                        <div
-                          className="analytics-table-row"
+                        <article
+                          className="hot-vehicle-row"
                           key={`${vehicle.vehicleId}-${vehicle.vehicleStockNumber}-${vehicle.vehicleLabel}`}
-                          role="row"
                         >
-                          <span>
+                          <div>
                             <strong>{vehicle.vehicleLabel}</strong>
                             <small>
                               {vehicle.vehicleStockNumber
                                 ? `Stock ${vehicle.vehicleStockNumber}`
                                 : "No stock #"}
                             </small>
-                          </span>
-                          <span>{vehicle.views}</span>
-                          <span>{vehicle.contacts}</span>
-                          <span>{vehicleConversion(vehicle)}%</span>
-                        </div>
+                          </div>
+                          <div className="hot-vehicle-metrics">
+                            <span>
+                              <strong>{vehicle.views}</strong>
+                              <small>views</small>
+                            </span>
+                            <span>
+                              <strong>{vehicle.contacts}</strong>
+                              <small>contacts</small>
+                            </span>
+                            <span>
+                              <strong>{vehicleConversion(vehicle)}%</strong>
+                              <small>rate</small>
+                            </span>
+                          </div>
+                          <p>{vehicleSignal(vehicle)}</p>
+                        </article>
                       ))}
                     </div>
                   ) : (
@@ -162,38 +162,15 @@ export default async function AdminAnalyticsPage() {
                 <section className="analytics-card">
                   <div className="analytics-card-head">
                     <div>
-                      <p className="eyebrow">Behavior</p>
-                      <h2>Event mix</h2>
-                    </div>
-                    <span>{summary.eventBreakdown.length} types</span>
-                  </div>
-
-                  {summary.eventBreakdown.length ? (
-                    <div className="analytics-event-breakdown">
-                      {summary.eventBreakdown.map((event) => (
-                        <div key={event.eventType}>
-                          <span>{labelEventType(event.eventType)}</span>
-                          <strong>{event.count}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="admin-empty">No behavior events yet.</p>
-                  )}
-                </section>
-
-                <section className="analytics-card">
-                  <div className="analytics-card-head">
-                    <div>
                       <p className="eyebrow">Recent activity</p>
-                      <h2>Event stream</h2>
+                      <h2>Latest signals</h2>
                     </div>
                     <span>{summary.totalEvents} total</span>
                   </div>
 
                   {summary.events.length ? (
                     <div className="analytics-events">
-                      {summary.events.map((event) => (
+                      {summary.events.slice(0, 14).map((event) => (
                         <article className="analytics-event" key={event.id}>
                           <span className={`analytics-event-type ${event.eventType}`}>
                             {labelEventType(event.eventType)}
@@ -216,6 +193,56 @@ export default async function AdminAnalyticsPage() {
                     <p className="admin-empty">No events recorded yet.</p>
                   )}
                 </section>
+
+                <section className="analytics-card">
+                  <div className="analytics-card-head">
+                    <div>
+                      <p className="eyebrow">Behavior detail</p>
+                      <h2>Traffic mix</h2>
+                    </div>
+                    <span>{summary.eventBreakdown.length} types</span>
+                  </div>
+
+                  <div className="analytics-secondary-grid">
+                    <AnalyticsMetricCard
+                      label="Today"
+                      value={summary.todayEvents}
+                      note="All events recorded today"
+                      tone="neutral"
+                    />
+                    <AnalyticsMetricCard
+                      label="Searches"
+                      value={summary.searches}
+                      note="Typed inventory searches"
+                      tone="neutral"
+                    />
+                    <AnalyticsMetricCard
+                      label="Filter actions"
+                      value={summary.filterActions}
+                      note="Filters and resets"
+                      tone="neutral"
+                    />
+                    <AnalyticsMetricCard
+                      label="Photo browses"
+                      value={summary.photoBrowses}
+                      note="Gallery arrow or thumbnail use"
+                      tone="neutral"
+                    />
+                  </div>
+
+                  {summary.eventBreakdown.length ? (
+                    <div className="analytics-event-breakdown">
+                      {summary.eventBreakdown.map((event) => (
+                        <div key={event.eventType}>
+                          <span>{labelEventType(event.eventType)}</span>
+                          <strong>{event.count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-empty">No behavior events yet.</p>
+                  )}
+                </section>
               </div>
             </section>
           </>
@@ -224,6 +251,26 @@ export default async function AdminAnalyticsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function AnalyticsMetricCard({
+  label,
+  note,
+  tone,
+  value,
+}: {
+  label: string;
+  note: string;
+  tone: "hot" | "neutral" | "warm";
+  value: number | string;
+}) {
+  return (
+    <div className={`analytics-metric-card ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{note}</small>
+    </div>
   );
 }
 
@@ -290,6 +337,18 @@ function vehicleConversion(vehicle: { contacts: number; views: number }) {
   }
 
   return Math.round((vehicle.contacts / vehicle.views) * 100);
+}
+
+function vehicleSignal(vehicle: { contacts: number; views: number }) {
+  if (vehicle.contacts > 0) {
+    return "High intent. Follow up or keep this vehicle prominent.";
+  }
+
+  if (vehicle.views >= 5) {
+    return "Getting attention. Consider adding stronger photos or details.";
+  }
+
+  return "Early interest. Keep watching this vehicle.";
 }
 
 function eventSummary(event: {
