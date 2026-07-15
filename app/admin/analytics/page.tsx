@@ -5,7 +5,10 @@ import {
   getAdminCookieName,
   isAdminSessionValueValid,
 } from "../../../lib/admin-auth";
-import { getAnalyticsSummary } from "../../../lib/analytics-store";
+import {
+  type AnalyticsRange,
+  getAnalyticsSummary,
+} from "../../../lib/analytics-store";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +20,29 @@ export const metadata: Metadata = {
   title: "Analytics · Deals with Dennis",
 };
 
-export default async function AdminAnalyticsPage() {
+const analyticsRanges: Array<{
+  href: string;
+  label: string;
+  value: AnalyticsRange;
+}> = [
+  { href: "/admin/analytics?range=today", label: "Today", value: "today" },
+  { href: "/admin/analytics?range=7d", label: "7 days", value: "7d" },
+  { href: "/admin/analytics?range=30d", label: "30 days", value: "30d" },
+  { href: "/admin/analytics?range=all", label: "All time", value: "all" },
+];
+
+export default async function AdminAnalyticsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ range?: string }>;
+}) {
+  const params = await searchParams;
+  const activeRange = normalizeAnalyticsRange(params?.range);
   const cookieStore = await cookies();
   const isAuthenticated = isAdminSessionValueValid(
     cookieStore.get(getAdminCookieName())?.value,
   );
-  const summary = isAuthenticated ? await getAnalyticsSummary() : null;
+  const summary = isAuthenticated ? await getAnalyticsSummary(activeRange) : null;
   const conversionRate =
     summary && summary.vehicleViews > 0
       ? Math.round((summary.contactClicks / summary.vehicleViews) * 100)
@@ -59,8 +79,8 @@ export default async function AdminAnalyticsPage() {
               </div>
               <p>
                 Track what is turning attention into leads. Start with hot
-                vehicles, contact intent, and the latest activity from the last
-                30 days.
+                vehicles, contact intent, and the latest activity for{" "}
+                {rangeSentence(activeRange)}.
               </p>
             </section>
 
@@ -72,6 +92,29 @@ export default async function AdminAnalyticsPage() {
                   migration in Supabase, then refresh this page.
                 </div>
               ) : null}
+
+              <div className="analytics-range-bar">
+                <div>
+                  <p className="eyebrow">Time range</p>
+                  <strong>{rangeTitle(activeRange)}</strong>
+                </div>
+                <div
+                  aria-label="Analytics time range"
+                  className="analytics-range-control"
+                >
+                  {analyticsRanges.map((range) => (
+                    <a
+                      aria-current={
+                        activeRange === range.value ? "page" : undefined
+                      }
+                      href={range.href}
+                      key={range.value}
+                    >
+                      {range.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
 
               <section className="analytics-sales-snapshot">
                 <div className="analytics-snapshot-copy">
@@ -272,6 +315,30 @@ function AnalyticsMetricCard({
       <small>{note}</small>
     </div>
   );
+}
+
+function normalizeAnalyticsRange(value: string | undefined): AnalyticsRange {
+  if (value === "today" || value === "7d" || value === "30d" || value === "all") {
+    return value;
+  }
+
+  return "30d";
+}
+
+function rangeTitle(value: AnalyticsRange) {
+  if (value === "today") return "Today";
+  if (value === "7d") return "Last 7 days";
+  if (value === "all") return "All time";
+
+  return "Last 30 days";
+}
+
+function rangeSentence(value: AnalyticsRange) {
+  if (value === "today") return "today";
+  if (value === "7d") return "the last 7 days";
+  if (value === "all") return "all recorded time";
+
+  return "the last 30 days";
 }
 
 function formatAnalyticsDate(value: string) {

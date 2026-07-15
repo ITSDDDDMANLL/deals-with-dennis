@@ -2130,6 +2130,52 @@ h3 {
   align-items: start;
 }
 
+.analytics-range-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgba(24, 32, 31, 0.08);
+  padding: 16px 18px;
+}
+
+.analytics-range-bar p,
+.analytics-range-bar strong {
+  margin: 0;
+}
+
+.analytics-range-bar strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.analytics-range-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analytics-range-control a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: var(--ink);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.analytics-range-control a[aria-current="page"] {
+  border-color: var(--ink);
+  background: var(--gold);
+  box-shadow: 3px 4px 0 rgba(21, 18, 15, 0.18);
+}
+
 .analytics-sales-snapshot {
   display: grid;
   grid-template-columns: minmax(260px, 0.36fr) minmax(0, 1fr);
@@ -3325,6 +3371,20 @@ h3 {
   .analytics-sales-snapshot,
   .analytics-priority-grid {
     grid-template-columns: 1fr;
+  }
+
+  .analytics-range-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .analytics-range-control {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-range-control a {
+    text-align: center;
   }
 
   .video-admin-workspace {

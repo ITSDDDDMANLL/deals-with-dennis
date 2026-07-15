@@ -55,6 +55,8 @@ export type AnalyticsSummary = {
   vehicleViews: number;
 };
 
+export type AnalyticsRange = "30d" | "7d" | "all" | "today";
+
 type SiteEventRow = {
   created_at: string;
   event_type: AnalyticsEventType;
@@ -68,27 +70,32 @@ type SiteEventRow = {
 
 const EVENT_WINDOW_DAYS = 30;
 
-export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  const sinceDate = new Date();
-  sinceDate.setDate(sinceDate.getDate() - EVENT_WINDOW_DAYS);
-  const since = sinceDate.toISOString();
+export async function getAnalyticsSummary(
+  range: AnalyticsRange = "30d",
+): Promise<AnalyticsSummary> {
+  const since = getRangeStart(range);
   const supabase = createSupabaseAdmin();
 
   if (!supabase) {
-    return emptySummary(since, false);
+    return emptySummary(since ?? "", false);
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("site_events")
     .select(
       "id, event_type, vehicle_id, vehicle_stock_number, vehicle_label, page_path, metadata, created_at",
     )
-    .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(5000);
 
+  if (since) {
+    query = query.gte("created_at", since);
+  }
+
+  const { data, error } = await query;
+
   if (error || !data) {
-    return emptySummary(since, false);
+    return emptySummary(since ?? "", false);
   }
 
   const events = (data as SiteEventRow[]).map((row) => ({
@@ -176,7 +183,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       .length,
     searches: events.filter((event) => event.eventType === "inventory_search")
       .length,
-    since,
+    since: since ?? "",
     sortActions: events.filter((event) => event.eventType === "inventory_sort")
       .length,
     todayEvents: events.filter((event) =>
@@ -189,6 +196,25 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     vehicleViews: events.filter((event) => event.eventType === "vehicle_view")
       .length,
   };
+}
+
+function getRangeStart(range: AnalyticsRange) {
+  if (range === "all") {
+    return null;
+  }
+
+  const sinceDate = new Date();
+
+  if (range === "today") {
+    sinceDate.setHours(0, 0, 0, 0);
+    return sinceDate.toISOString();
+  }
+
+  sinceDate.setDate(
+    sinceDate.getDate() - (range === "7d" ? 7 : EVENT_WINDOW_DAYS),
+  );
+
+  return sinceDate.toISOString();
 }
 
 function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
