@@ -241,7 +241,18 @@ function getErrorMessage(error: unknown) {
 }
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "America/Vancouver",
+    year: "numeric",
+  }).formatToParts(new Date());
+
+  return [
+    parts.find((part) => part.type === "year")?.value ?? "",
+    parts.find((part) => part.type === "month")?.value ?? "",
+    parts.find((part) => part.type === "day")?.value ?? "",
+  ].join("-");
 }
 
 function appointmentSlots(dateValue: string) {
@@ -263,11 +274,11 @@ function appointmentSlots(dateValue: string) {
 
 function formatSlot(value: string) {
   const [hour, minute] = value.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
+  const date = new Date(Date.UTC(2026, 0, 1, hour, minute, 0, 0));
 
   return new Intl.DateTimeFormat("en-CA", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   }).format(date);
 }

@@ -350,6 +350,8 @@ function formatAnalyticsDate(value: string) {
 
   return new Intl.DateTimeFormat("en-CA", {
     dateStyle: "medium",
+    timeZone: "America/Vancouver",
+    timeZoneName: "short",
     timeStyle: "short",
   }).format(date);
 }

@@ -19,13 +19,14 @@ const appointmentTypeOptions: Array<{
 ];
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const vancouverTimeZone = "America/Vancouver";
 
 export function AdminAppointmentCalendar({
   appointments,
 }: {
   appointments: ContactInquiry[];
 }) {
-  const initialDate = appointments[0]?.appointmentDate || dateKey(new Date());
+  const initialDate = appointments[0]?.appointmentDate || vancouverTodayKey();
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     startOfMonth(parseDateKey(initialDate)),
@@ -641,12 +642,12 @@ function daySlots(date: string) {
 
 function formatTime(value: string) {
   const [hour, minute] = normalizedTime(value).split(":").map(Number);
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
+  const date = new Date(Date.UTC(2026, 0, 1, hour, minute, 0, 0));
 
   return new Intl.DateTimeFormat("en-CA", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   }).format(date);
 }
 
@@ -660,17 +661,19 @@ function formatMonth(value: Date) {
 function formatDateLong(value: string) {
   return new Intl.DateTimeFormat("en-CA", {
     dateStyle: "full",
-  }).format(parseDateKey(value));
+    timeZone: vancouverTimeZone,
+  }).format(dateKeyNoon(value));
 }
 
 function dayName(value: string) {
   return new Intl.DateTimeFormat("en-CA", {
+    timeZone: vancouverTimeZone,
     weekday: "long",
-  }).format(parseDateKey(value));
+  }).format(dateKeyNoon(value));
 }
 
 function isToday(value: string) {
-  return value === dateKey(new Date());
+  return value === vancouverTodayKey();
 }
 
 function periodLabel(view: ViewMode, selectedDate: string, visibleMonth: Date) {
@@ -686,5 +689,26 @@ function formatShortDate(value: string) {
   return new Intl.DateTimeFormat("en-CA", {
     day: "numeric",
     month: "short",
-  }).format(parseDateKey(value));
+    timeZone: vancouverTimeZone,
+  }).format(dateKeyNoon(value));
+}
+
+function dateKeyNoon(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day || 1, 12, 0, 0, 0));
+}
+
+function vancouverTodayKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: vancouverTimeZone,
+    year: "numeric",
+  }).formatToParts(new Date());
+
+  return [
+    parts.find((part) => part.type === "year")?.value ?? "",
+    parts.find((part) => part.type === "month")?.value ?? "",
+    parts.find((part) => part.type === "day")?.value ?? "",
+  ].join("-");
 }
