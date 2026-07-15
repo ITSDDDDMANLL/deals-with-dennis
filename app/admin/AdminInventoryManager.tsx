@@ -83,6 +83,7 @@ export function AdminInventoryManager({
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
   const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const vehicleImageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -164,6 +165,11 @@ export function AdminInventoryManager({
         vehicle.id === id ? { ...vehicle, ...patch } : vehicle,
       ),
     );
+  }
+
+  function openVehicleEditor(id: string) {
+    setSelectedId(id);
+    setIsEditorOpen(true);
   }
 
   async function uploadVehicleImages(
@@ -418,6 +424,7 @@ export function AdminInventoryManager({
     const next = { ...blankVehicle, id };
     setVehicles((current) => [next, ...current]);
     setSelectedId(id);
+    setIsEditorOpen(true);
     setNotice("New vehicle added. Click Save Vehicles to publish it.");
   }
 
@@ -440,6 +447,7 @@ export function AdminInventoryManager({
     setVehicles((current) => {
       const next = current.filter((vehicle) => vehicle.id !== id);
       setSelectedId(next[0]?.id ?? "");
+      setIsEditorOpen(false);
       return next;
     });
     setDeletedVehicles((current) =>
@@ -462,6 +470,7 @@ export function AdminInventoryManager({
     );
     setDeletedVehicles((current) => current.filter((item) => item.id !== id));
     setSelectedId(id);
+    setIsEditorOpen(true);
     setNotice("Vehicle restored.");
   }
 
@@ -644,25 +653,6 @@ export function AdminInventoryManager({
             </label>
           </div>
 
-          <div className="admin-list" aria-label="Inventory vehicles">
-            {filteredAdminVehicles.map((vehicle) => (
-              <button
-                className={vehicle.id === selectedVehicle?.id ? "active" : ""}
-                key={vehicle.id}
-                onClick={() => setSelectedId(vehicle.id)}
-                type="button"
-              >
-                <span>
-                  {vehicle.year} {vehicle.make} {vehicle.model}
-                </span>
-                <small>{vehicle.stockNumber || "No stock #"}</small>
-              </button>
-            ))}
-            {!filteredAdminVehicles.length ? (
-              <p className="admin-empty">No vehicles match these filters.</p>
-            ) : null}
-          </div>
-
           <div className="deleted-vehicles-panel">
             <div className="deleted-vehicles-head">
               <span>Pending deletions</span>
@@ -694,7 +684,34 @@ export function AdminInventoryManager({
           </div>
         </div>
 
-        {selectedVehicle ? (
+        <div className="admin-inventory-board">
+          <div className="admin-inventory-board-head">
+            <div>
+              <p className="eyebrow">Inventory view</p>
+              <h3>{filteredAdminVehicles.length} matching vehicles</h3>
+            </div>
+            <p>
+              Browse like the public site, then use Edit to manage photos,
+              details, status, and featured placement.
+            </p>
+          </div>
+
+          {filteredAdminVehicles.length ? (
+            <div className="vehicle-grid admin-vehicle-grid">
+              {filteredAdminVehicles.map((vehicle) => (
+                <AdminVehicleCard
+                  isSelected={vehicle.id === selectedVehicle?.id && isEditorOpen}
+                  key={vehicle.id}
+                  onEdit={() => openVehicleEditor(vehicle.id)}
+                  vehicle={vehicle}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="admin-empty">No vehicles match these filters.</p>
+          )}
+
+        {selectedVehicle && isEditorOpen ? (
           <form className="admin-editor">
             <div className="editor-head">
               <div>
@@ -704,13 +721,22 @@ export function AdminInventoryManager({
                   {selectedVehicle.model}
                 </h3>
               </div>
-              <button
-                className="button danger"
-                onClick={() => removeVehicle(selectedVehicle.id)}
-                type="button"
-              >
-                Remove
-              </button>
+              <div className="editor-head-actions">
+                <button
+                  className="button danger"
+                  onClick={() => removeVehicle(selectedVehicle.id)}
+                  type="button"
+                >
+                  Remove
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => setIsEditorOpen(false)}
+                  type="button"
+                >
+                  Close Editor
+                </button>
+              </div>
             </div>
 
             <div className="editor-grid">
@@ -965,8 +991,84 @@ export function AdminInventoryManager({
             </div>
           </form>
         ) : null}
+        </div>
       </div>
     </section>
+  );
+}
+
+function AdminVehicleCard({
+  isSelected,
+  onEdit,
+  vehicle,
+}: {
+  isSelected: boolean;
+  onEdit: () => void;
+  vehicle: EditableVehicle;
+}) {
+  const imageCount = vehicle.imageUrls?.length ?? 0;
+
+  return (
+    <article className={`vehicle-card admin-vehicle-card ${isSelected ? "active" : ""}`}>
+      <div className="vehicle-photo" aria-hidden="true">
+        {vehicle.imageUrls?.[0] ? (
+          <img src={vehicle.imageUrls[0]} alt="" />
+        ) : (
+          <span>{vehicle.make || "No photo"}</span>
+        )}
+        {vehicle.status !== "available" ? (
+          <div className={`vehicle-photo-status ${vehicle.status}`}>
+            {vehicle.status === "incoming" ? "Incoming" : "Sold"}
+          </div>
+        ) : null}
+      </div>
+      <div className="vehicle-body">
+        <div className="vehicle-summary">
+          <div className="admin-card-tags">
+            <span className={`status ${vehicle.status}`}>{vehicle.status}</span>
+            <span className="type-label">{vehicle.type}</span>
+            <span className={`claim-label ${vehicle.claimStatus ?? "unknown"}`}>
+              {claimStatusLabel(vehicle.claimStatus)}
+            </span>
+            <span className="stock-label">
+              {vehicle.isFeatured === false ? "Not featured" : "Featured"}
+            </span>
+          </div>
+          <h3>
+            {vehicle.year} {vehicle.make || "Make TBD"} {vehicle.model || "Model TBD"}
+          </h3>
+          <p className="vehicle-trim">
+            {vehicle.trim || "Trim details coming soon"}
+          </p>
+          <div className="vehicle-price-row">
+            <strong>{vehicle.priceLabel || "Ask for pricing"}</strong>
+          </div>
+        </div>
+        <dl className="vehicle-specs">
+          <div>
+            <dt>Mileage</dt>
+            <dd>{vehicle.mileageLabel || "Mileage TBD"}</dd>
+          </div>
+          <div>
+            <dt>Class</dt>
+            <dd>{vehicle.className || "Class TBD"}</dd>
+          </div>
+          <div>
+            <dt>Stock #</dt>
+            <dd>{vehicle.stockNumber || "No stock #"}</dd>
+          </div>
+          <div>
+            <dt>Photos</dt>
+            <dd>{imageCount} / {maxVehicleImages}</dd>
+          </div>
+        </dl>
+        <div className="admin-card-actions">
+          <button className="button primary" onClick={onEdit} type="button">
+            Edit
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -1001,6 +1103,14 @@ function fieldLabel(field: EditableField) {
   };
 
   return labels[field];
+}
+
+function claimStatusLabel(value: ClaimStatus | undefined) {
+  const option = claimStatusOptions.find(
+    (currentOption) => currentOption.value === value,
+  );
+
+  return option?.label ?? "Claim status TBD";
 }
 
 function SelectWithOther({
