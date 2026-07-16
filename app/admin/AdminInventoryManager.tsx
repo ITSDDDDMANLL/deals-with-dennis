@@ -374,12 +374,15 @@ export function AdminInventoryManager({
 
   async function saveVehiclesOnly() {
     setSaving(true);
+    const vehiclesToSave = normalizeVehiclePrices(vehicles);
+
+    setVehicles(vehiclesToSave);
 
     let inventoryResponse: Response;
 
     try {
       inventoryResponse = await fetch("/api/admin/inventory", {
-        body: JSON.stringify({ vehicles }),
+        body: JSON.stringify({ vehicles: vehiclesToSave }),
         headers: { "Content-Type": "application/json" },
         method: "PUT",
       });
@@ -406,7 +409,7 @@ export function AdminInventoryManager({
 
     setNotice(
       inventoryResult.mode === "supabase"
-        ? `Saved ${inventoryResult.count ?? vehicles.length} vehicles to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
+        ? `Saved ${inventoryResult.count ?? vehiclesToSave.length} vehicles to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
         : "Vehicle save did not reach Supabase. Check server environment variables.",
     );
     setDeletedVehicles([]);
@@ -902,6 +905,7 @@ export function AdminInventoryManager({
                 <label key={field}>
                   <span>{fieldLabel(field)}</span>
                   <input
+                    inputMode={field === "priceLabel" ? "numeric" : undefined}
                     value={String(selectedVehicle[field] ?? "")}
                     onChange={(event) =>
                       updateVehicle(selectedVehicle.id, {
@@ -911,6 +915,16 @@ export function AdminInventoryManager({
                             : event.target.value,
                       })
                     }
+                    onBlur={(event) => {
+                      if (field !== "priceLabel") {
+                        return;
+                      }
+
+                      updateVehicle(selectedVehicle.id, {
+                        priceLabel: normalizePriceLabel(event.target.value),
+                      });
+                    }}
+                    placeholder={field === "priceLabel" ? "$24,995" : undefined}
                     type={field === "year" ? "number" : "text"}
                   />
                 </label>
@@ -1178,6 +1192,43 @@ function SelectWithOther({
       ) : null}
     </label>
   );
+}
+
+function normalizeVehiclePrices(vehicles: EditableVehicle[]) {
+  return vehicles.map((vehicle) => ({
+    ...vehicle,
+    priceLabel: normalizePriceLabel(vehicle.priceLabel),
+  }));
+}
+
+function normalizePriceLabel(value: unknown) {
+  const raw = String(value ?? "").trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (/[a-z]/i.test(raw)) {
+    return raw;
+  }
+
+  const digits = raw.replace(/[^\d]/g, "");
+
+  if (!digits) {
+    return raw;
+  }
+
+  const amount = Number(digits);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return raw;
+  }
+
+  return new Intl.NumberFormat("en-CA", {
+    currency: "CAD",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(amount);
 }
 
 function uniqueAdminValues(values: Array<string | number | null | undefined>) {

@@ -61,6 +61,7 @@ export function InventoryBrowser({
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const hasTrackedPageView = useRef(false);
   const [selectFilters, setSelectFilters] = useState<SelectFilters>({
     bodyStyle: "all",
@@ -214,7 +215,18 @@ export function InventoryBrowser({
   return (
     <div className="inventory-browser">
       {showAdvancedControls ? (
-        <div className="inventory-filter-panel">
+        <div
+          className={`inventory-filter-panel ${
+            mobileFiltersOpen ? "filters-open" : "filters-collapsed"
+          }`}
+        >
+          <button
+            className="filter-toggle"
+            onClick={() => setMobileFiltersOpen((current) => !current)}
+            type="button"
+          >
+            {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
+          </button>
           <div className="filter-grid">
             <FilterSelect
               label="Year"
