@@ -77,6 +77,7 @@ export async function POST(
     sourceUrl: process.env.NEXT_PUBLIC_SITE_URL
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin/inquiries`
       : null,
+    stage: "To Do",
     vehicle: {
       condition:
         inquiry.vehicle_type === "new"

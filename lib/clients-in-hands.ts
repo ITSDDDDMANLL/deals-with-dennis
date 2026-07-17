@@ -12,6 +12,7 @@ export type WebsiteLeadPayload = {
   preferredContactMethod?: PreferredContactMethod | null;
   source?: string | null;
   sourceUrl?: string | null;
+  stage?: string | null;
   vehicle?: {
     condition?: "New" | "Used" | null;
     make?: string | null;

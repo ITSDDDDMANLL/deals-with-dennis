@@ -3759,19 +3759,9 @@ h3 {
     font-size: 16px;
   }
 
-  .vehicle-grid.list-view .vehicle-specs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .vehicle-grid.list-view .vehicle-specs div:nth-child(n + 5),
-  .vehicle-grid.list-view .vehicle-specs .wide-spec {
-    display: none;
-  }
-
+  .vehicle-grid.list-view .vehicle-specs,
   .vehicle-grid.list-view .vehicle-card-hint {
-    padding-top: 6px;
-    font-size: 12px;
+    display: none;
   }
 
   .admin-list-filters {
