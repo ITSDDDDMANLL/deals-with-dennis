@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { AdminInventoryManager } from "./AdminInventoryManager";
+import { AdminHeader } from "./AdminHeader";
 import { AdminLogin } from "./AdminLogin";
 import { getFeaturedVehicles } from "../data/inventory";
 import { getAdminCookieName, isAdminSessionValueValid } from "../../lib/admin-auth";
@@ -27,24 +28,7 @@ export default async function AdminPage() {
 
   return (
     <main className="admin-page">
-      <header className="site-header">
-        <nav className="nav-shell" aria-label="Admin navigation">
-          <a className="brand" href="/">
-            Dennis Liu <span>Inventory Admin</span>
-          </a>
-          <div className="nav-links">
-            <a href="/admin/analytics">Analytics</a>
-            <a href="/admin/content">Content</a>
-            <a href="/admin/inquiries">Inquiries</a>
-            <a href="/admin/appointments">Appointments</a>
-            <a href="/admin/history">History</a>
-            <a href="/">Public Site</a>
-            <a className="nav-cta" href="/#inventory">
-              View Inventory
-            </a>
-          </div>
-        </nav>
-      </header>
+      <AdminHeader section="Inventory Admin" />
 
       <div className="page-shell">
         {isAuthenticated ? (

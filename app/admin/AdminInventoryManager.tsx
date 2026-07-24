@@ -621,12 +621,12 @@ export function AdminInventoryManager({
               </select>
             </label>
             <label>
-              <span>Type</span>
+              <span>New / Used</span>
               <select
                 value={adminTypeFilter}
                 onChange={(event) => setAdminTypeFilter(event.target.value)}
               >
-                <option value="all">All types</option>
+                <option value="all">All inventory</option>
                 <option value="used">Used</option>
                 <option value="new">New</option>
               </select>

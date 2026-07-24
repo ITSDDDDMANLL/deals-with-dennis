@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
+import { AdminHeader } from "../AdminHeader";
 import { AdminLogin } from "../AdminLogin";
 import {
   getAdminCookieName,
@@ -29,21 +30,7 @@ export default async function AdminAppointmentsPage() {
 
   return (
     <main className="admin-page">
-      <header className="site-header">
-        <nav className="nav-shell" aria-label="Admin appointments navigation">
-          <a className="brand" href="/admin">
-            Dennis Liu <span>Appointments</span>
-          </a>
-          <div className="nav-links">
-            <a href="/admin">Inventory Admin</a>
-            <a href="/admin/analytics">Analytics</a>
-            <a href="/admin/content">Content</a>
-            <a href="/admin/inquiries">Inquiries</a>
-            <a href="/admin/history">History</a>
-            <a href="/">Public Site</a>
-          </div>
-        </nav>
-      </header>
+      <AdminHeader section="Appointments" />
 
       <div className="page-shell">
         {isAuthenticated ? (

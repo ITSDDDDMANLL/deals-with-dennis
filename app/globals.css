@@ -101,12 +101,46 @@ textarea {
   color: var(--ink);
 }
 
+.admin-nav-shell {
+  width: min(1680px, calc(100% - 40px));
+}
+
+.admin-nav-links {
+  gap: 16px;
+}
+
 .nav-cta {
   border: 1px solid var(--ink);
   border-radius: 999px;
   color: var(--ink);
   padding: 10px 16px;
   box-shadow: none;
+}
+
+.nav-mode-toggle {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--forest);
+  cursor: pointer;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.nav-mode-toggle[aria-pressed="true"] {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #ffffff;
+}
+
+.admin-wide .admin-page .page-shell {
+  width: min(1760px, calc(100% - 40px));
+}
+
+.admin-wide .admin-workspace {
+  grid-template-columns: minmax(260px, 0.22fr) minmax(0, 1fr);
 }
 
 .ticker {

@@ -275,7 +275,7 @@ export function InventoryBrowser({
               </select>
             </label>
             <FilterSelect
-              label="Condition"
+              label="New / Used"
               value={selectFilters.condition}
               options={["New", "Used"]}
               onChange={(value) => updateSelectFilter("condition", value)}
