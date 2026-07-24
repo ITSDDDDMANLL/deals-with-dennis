@@ -147,9 +147,12 @@ function formatHistoryDate(value?: string) {
   }
 
   return new Intl.DateTimeFormat("en-CA", {
-    dateStyle: "medium",
+    day: "numeric",
+    month: "short",
     timeZone: "America/Vancouver",
     timeZoneName: "short",
-    timeStyle: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    year: "numeric",
   }).format(date);
 }

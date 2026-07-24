@@ -69,6 +69,7 @@ type SiteEventRow = {
 };
 
 const EVENT_WINDOW_DAYS = 30;
+const VANCOUVER_TIME_ZONE = "America/Vancouver";
 
 export async function getAnalyticsSummary(
   range: AnalyticsRange = "30d",
@@ -143,7 +144,7 @@ export async function getAnalyticsSummary(
     topVehicleMap.set(key, current);
   }
 
-  const today = new Date();
+  const todayKey = getVancouverDateKey(new Date());
   const eventBreakdownMap = new Map<AnalyticsEventType, number>();
 
   for (const event of events) {
@@ -186,8 +187,8 @@ export async function getAnalyticsSummary(
     since: since ?? "",
     sortActions: events.filter((event) => event.eventType === "inventory_sort")
       .length,
-    todayEvents: events.filter((event) =>
-      isSameLocalDate(event.createdAt, today),
+    todayEvents: events.filter(
+      (event) => getVancouverDateKey(event.createdAt) === todayKey,
     ).length,
     topVehicles: Array.from(topVehicleMap.values())
       .sort((a, b) => b.contacts - a.contacts || b.views - a.views)
@@ -239,16 +240,25 @@ function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
   };
 }
 
-function isSameLocalDate(value: string, date: Date) {
-  const next = new Date(value);
+function getVancouverDateKey(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
 
-  if (Number.isNaN(next.getTime())) {
-    return false;
+  if (Number.isNaN(date.getTime())) {
+    return "";
   }
 
-  return (
-    next.getFullYear() === date.getFullYear() &&
-    next.getMonth() === date.getMonth() &&
-    next.getDate() === date.getDate()
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: VANCOUVER_TIME_ZONE,
+    year: "numeric",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
   );
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
