@@ -113,7 +113,15 @@ export async function getAnalyticsSummary(
   const topVehicleMap = new Map<string, VehicleAnalyticsRow>();
 
   for (const event of events) {
-    if (!event.vehicleId && !event.vehicleStockNumber && !event.vehicleLabel) {
+    if (
+      event.eventType !== "vehicle_view" &&
+      event.eventType !== "photo_browse" &&
+      event.eventType !== "contact_click"
+    ) {
+      continue;
+    }
+
+    if (!event.vehicleId && !event.vehicleStockNumber) {
       continue;
     }
 

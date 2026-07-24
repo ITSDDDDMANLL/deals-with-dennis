@@ -2292,18 +2292,33 @@ h3 {
   gap: 8px;
 }
 
+.hot-vehicle-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 100px 78px;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 950;
+  padding: 0 12px 2px;
+  text-transform: uppercase;
+}
+
 .hot-vehicle-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 268px;
   gap: 10px;
+  align-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  padding: 14px;
+  padding: 12px;
 }
 
-.hot-vehicle-row > div:first-child {
+.hot-vehicle-main {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
 }
 
 .hot-vehicle-row strong,
@@ -2311,15 +2326,28 @@ h3 {
   display: block;
 }
 
-.hot-vehicle-row > div:first-child strong {
+.hot-vehicle-main strong {
   overflow-wrap: anywhere;
   font-size: 18px;
+  line-height: 1.12;
 }
 
 .hot-vehicle-row small {
   color: var(--muted);
   font-size: 12px;
   font-weight: 850;
+}
+
+.hot-vehicle-main em {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(15, 95, 76, 0.08);
+  color: var(--forest);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  padding: 5px 8px;
+  text-transform: uppercase;
 }
 
 .hot-vehicle-metrics {
@@ -2329,24 +2357,22 @@ h3 {
 }
 
 .hot-vehicle-metrics span {
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  padding: 8px;
+  text-align: center;
+}
+
+.hot-vehicle-metrics span.hot {
+  border-color: rgba(15, 95, 76, 0.25);
+  background: rgba(15, 95, 76, 0.08);
+  color: var(--forest);
 }
 
 .hot-vehicle-metrics strong {
   font-size: 24px;
   line-height: 1;
-}
-
-.hot-vehicle-row p {
-  margin: 0;
-  border-left: 4px solid var(--accent);
-  background: rgba(15, 95, 76, 0.08);
-  color: var(--muted);
-  padding: 9px 10px;
-  font-size: 13px;
-  font-weight: 850;
-  line-height: 1.35;
 }
 
 .analytics-table-row {
@@ -3512,6 +3538,18 @@ h3 {
   .analytics-table-row {
     grid-template-columns: 1fr 56px 72px 54px;
     gap: 8px;
+  }
+
+  .hot-vehicle-heading {
+    display: none;
+  }
+
+  .hot-vehicle-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hot-vehicle-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .analytics-event {

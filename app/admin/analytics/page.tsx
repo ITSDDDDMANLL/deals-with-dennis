@@ -161,39 +161,46 @@ export default async function AdminAnalyticsPage({
                       <p className="eyebrow">Hot vehicles</p>
                       <h2>Follow-up priority</h2>
                     </div>
-                    <span>{summary.topVehicles.length} vehicles</span>
+                    <span>{summary.topVehicles.length} tracked</span>
                   </div>
 
                   {summary.topVehicles.length ? (
-                    <div className="hot-vehicle-list">
+                    <div className="hot-vehicle-list" role="table">
+                      <div className="hot-vehicle-heading" role="row">
+                        <span>Vehicle</span>
+                        <span>Views</span>
+                        <span>Contacts</span>
+                        <span>Rate</span>
+                      </div>
                       {summary.topVehicles.map((vehicle) => (
                         <article
                           className="hot-vehicle-row"
                           key={`${vehicle.vehicleId}-${vehicle.vehicleStockNumber}-${vehicle.vehicleLabel}`}
+                          role="row"
                         >
-                          <div>
+                          <div className="hot-vehicle-main" role="cell">
                             <strong>{vehicle.vehicleLabel}</strong>
                             <small>
                               {vehicle.vehicleStockNumber
                                 ? `Stock ${vehicle.vehicleStockNumber}`
                                 : "No stock #"}
                             </small>
+                            <em>{vehicleSignal(vehicle)}</em>
                           </div>
-                          <div className="hot-vehicle-metrics">
-                            <span>
+                          <div className="hot-vehicle-metrics" role="cell">
+                            <span className={vehicle.contacts > 0 ? "hot" : ""}>
                               <strong>{vehicle.views}</strong>
                               <small>views</small>
                             </span>
-                            <span>
+                            <span className={vehicle.contacts > 0 ? "hot" : ""}>
                               <strong>{vehicle.contacts}</strong>
                               <small>contacts</small>
                             </span>
-                            <span>
+                            <span className={vehicleConversion(vehicle) > 0 ? "hot" : ""}>
                               <strong>{vehicleConversion(vehicle)}%</strong>
                               <small>rate</small>
                             </span>
                           </div>
-                          <p>{vehicleSignal(vehicle)}</p>
                         </article>
                       ))}
                     </div>
@@ -219,7 +226,7 @@ export default async function AdminAnalyticsPage({
                             {labelEventType(event.eventType)}
                           </span>
                           <div>
-                            <strong>{event.vehicleLabel}</strong>
+                            <strong>{eventTitle(event)}</strong>
                             <small>
                               {event.vehicleStockNumber
                                 ? `Stock ${event.vehicleStockNumber} · `
@@ -413,14 +420,46 @@ function vehicleConversion(vehicle: { contacts: number; views: number }) {
 
 function vehicleSignal(vehicle: { contacts: number; views: number }) {
   if (vehicle.contacts > 0) {
-    return "High intent. Follow up or keep this vehicle prominent.";
+    return "High intent";
   }
 
   if (vehicle.views >= 5) {
-    return "Getting attention. Consider adding stronger photos or details.";
+    return "Getting attention";
   }
 
-  return "Early interest. Keep watching this vehicle.";
+  return "Early interest";
+}
+
+function eventTitle(event: {
+  eventType: string;
+  pagePath: string;
+  vehicleLabel: string;
+}) {
+  if (event.eventType === "page_view") {
+    return pagePathLabel(event.pagePath);
+  }
+
+  if (event.eventType === "inventory_search") {
+    return "Inventory search";
+  }
+
+  if (event.eventType === "inventory_filter") {
+    return "Inventory filter";
+  }
+
+  if (event.eventType === "inventory_sort") {
+    return "Inventory sort";
+  }
+
+  if (event.eventType === "view_mode_change") {
+    return "Inventory view setting";
+  }
+
+  if (event.eventType === "filter_reset") {
+    return "Filters reset";
+  }
+
+  return event.vehicleLabel || "Vehicle activity";
 }
 
 function eventSummary(event: {
@@ -454,10 +493,30 @@ function eventSummary(event: {
   }
 
   if (event.eventType === "page_view") {
-    return event.pagePath;
+    return `Path ${event.pagePath || "/"}`;
   }
 
   return "";
+}
+
+function pagePathLabel(path: string) {
+  if (!path || path === "/") {
+    return "Homepage";
+  }
+
+  if (path === "/inventory") {
+    return "Inventory page";
+  }
+
+  if (path === "/admin/analytics") {
+    return "Admin analytics";
+  }
+
+  if (path.startsWith("/admin")) {
+    return "Admin page";
+  }
+
+  return path;
 }
 
 function valueToLabel(value: unknown) {
