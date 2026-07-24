@@ -821,7 +821,7 @@ function trackInventoryEvent(
 function VehicleCardTags({ vehicle }: { vehicle: Vehicle }) {
   return (
     <span className="vehicle-inline-tags">
-      <span className="type-label">{vehicle.type}</span>
+      <span className={`type-label ${vehicle.type}`}>{vehicle.type}</span>
       {(vehicle.claimStatus ?? "unknown") !== "unknown" ? (
         <span className={`claim-label ${vehicle.claimStatus ?? "unknown"}`}>
           {claimStatusLabels[vehicle.claimStatus ?? "unknown"]}

@@ -1051,8 +1051,12 @@ function AdminVehicleCard({
       <div className="vehicle-body">
         <div className="vehicle-summary">
           <div className="admin-card-tags">
-            <span className={`status ${vehicle.status}`}>{vehicle.status}</span>
-            <span className="type-label">{vehicle.type}</span>
+            <span className={`status ${vehicle.status}`}>
+              {vehicleStatusLabel(vehicle.status)}
+            </span>
+            <span className={`type-label ${vehicle.type}`}>
+              {vehicleTypeLabel(vehicle.type)}
+            </span>
             <span className={`claim-label ${vehicle.claimStatus ?? "unknown"}`}>
               {claimStatusLabel(vehicle.claimStatus)}
             </span>
@@ -1136,7 +1140,18 @@ function claimStatusLabel(value: ClaimStatus | undefined) {
     (currentOption) => currentOption.value === value,
   );
 
-  return option?.label ?? "Claim status TBD";
+  return option?.label ?? "Claim TBD";
+}
+
+function vehicleStatusLabel(value: EditableVehicle["status"]) {
+  if (value === "incoming") return "Incoming";
+  if (value === "sold") return "Sold";
+
+  return "Available";
+}
+
+function vehicleTypeLabel(value: VehicleType) {
+  return value === "new" ? "New" : "Used";
 }
 
 function SelectWithOther({

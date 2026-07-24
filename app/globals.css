@@ -674,14 +674,34 @@ h3 {
   color: var(--forest);
 }
 
+.status.available {
+  background: rgba(15, 95, 76, 0.1);
+  color: var(--forest);
+}
+
 .status.incoming {
   background: rgba(15, 95, 76, 0.16);
   color: var(--accent-dark);
 }
 
+.status.sold {
+  background: rgba(11, 15, 14, 0.08);
+  color: var(--muted);
+}
+
 .type-label {
   background: var(--panel-soft);
   color: var(--accent-dark);
+}
+
+.type-label.used {
+  background: rgba(15, 95, 76, 0.08);
+  color: var(--forest);
+}
+
+.type-label.new {
+  background: rgba(11, 15, 14, 0.08);
+  color: var(--ink);
 }
 
 .stock-label {
@@ -693,6 +713,11 @@ h3 {
 .claim-label {
   background: rgba(15, 95, 76, 0.12);
   color: var(--accent-dark);
+}
+
+.claim-label.unknown {
+  background: rgba(11, 15, 14, 0.08);
+  color: var(--muted);
 }
 
 .claim-label.no-claim {
@@ -2165,9 +2190,33 @@ h3 {
 
 .analytics-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-areas:
+    "popular leads"
+    "popular activity"
+    "audience traffic";
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
   gap: 18px;
   align-items: start;
+}
+
+.analytics-grid > .analytics-card:nth-child(1) {
+  grid-area: popular;
+}
+
+.lead-followup-card {
+  grid-area: leads;
+}
+
+.analytics-grid > .analytics-card:nth-child(3) {
+  grid-area: activity;
+}
+
+.audience-card {
+  grid-area: audience;
+}
+
+.traffic-card {
+  grid-area: traffic;
 }
 
 .analytics-range-bar {
@@ -2483,6 +2532,110 @@ h3 {
 .analytics-event-breakdown strong {
   font-size: 24px;
   line-height: 1;
+}
+
+.lead-followup-list {
+  display: grid;
+  gap: 10px;
+}
+
+.lead-followup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.lead-followup-row strong,
+.lead-followup-row small {
+  display: block;
+}
+
+.lead-followup-row strong {
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.lead-followup-row small,
+.lead-followup-row p {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.lead-followup-row p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.lead-followup-row > span {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(15, 95, 76, 0.1);
+  color: var(--forest);
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.lead-followup-row a {
+  grid-column: 1 / -1;
+  width: fit-content;
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.audience-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analytics-mini-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.analytics-mini-list > strong {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.analytics-mini-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.analytics-mini-list span,
+.analytics-mini-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.analytics-mini-list em {
+  color: var(--ink);
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 950;
 }
 
 .analytics-event {
@@ -3432,11 +3585,18 @@ h3 {
   }
 
   .analytics-grid {
+    grid-template-areas:
+      "popular"
+      "leads"
+      "activity"
+      "audience"
+      "traffic";
     grid-template-columns: 1fr;
   }
 
   .analytics-sales-snapshot,
-  .analytics-priority-grid {
+  .analytics-priority-grid,
+  .audience-grid {
     grid-template-columns: 1fr;
   }
 

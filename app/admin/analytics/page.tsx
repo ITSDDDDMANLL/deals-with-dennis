@@ -10,6 +10,10 @@ import {
   type AnalyticsRange,
   getAnalyticsSummary,
 } from "../../../lib/analytics-store";
+import {
+  type ContactInquiry,
+  getContactInquiries,
+} from "../../../lib/inquiry-store";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +48,16 @@ export default async function AdminAnalyticsPage({
     cookieStore.get(getAdminCookieName())?.value,
   );
   const summary = isAuthenticated ? await getAnalyticsSummary(activeRange) : null;
+  const inquiries = isAuthenticated ? await getContactInquiries() : [];
+  const leadFollowUps =
+    summary && isAuthenticated
+      ? filterInquiriesByRange(inquiries, activeRange).slice(0, 6)
+      : [];
   const conversionRate =
     summary && summary.vehicleViews > 0
       ? Math.round((summary.contactClicks / summary.vehicleViews) * 100)
       : 0;
+  const popularVehicles = summary?.topVehicles.slice(0, 8) ?? [];
 
   return (
     <main className="admin-page">
@@ -62,9 +72,9 @@ export default async function AdminAnalyticsPage({
                 <h1>Website analytics</h1>
               </div>
               <p>
-                Track what is turning attention into leads. Start with hot
-                vehicles, contact intent, and the latest activity for{" "}
-                {rangeSentence(activeRange)}.
+                Separate anonymous browsing interest from real customer leads.
+                Popular vehicles show attention; lead follow-up shows people you
+                can actually contact for {rangeSentence(activeRange)}.
               </p>
             </section>
 
@@ -103,11 +113,10 @@ export default async function AdminAnalyticsPage({
               <section className="analytics-sales-snapshot">
                 <div className="analytics-snapshot-copy">
                   <p className="eyebrow">Sales snapshot</p>
-                  <h2>What needs attention now</h2>
+                  <h2>Interest vs. leads</h2>
                   <p>
-                    Leads and contact clicks are the strongest buying signals.
-                    Vehicle views show where attention is building before people
-                    reach out.
+                    Anonymous traffic tells you what is popular. Submitted
+                    inquiries and appointments are the people to follow up with.
                   </p>
                 </div>
                 <div className="analytics-priority-grid">
@@ -142,13 +151,13 @@ export default async function AdminAnalyticsPage({
                 <section className="analytics-card">
                   <div className="analytics-card-head">
                     <div>
-                      <p className="eyebrow">Hot vehicles</p>
-                      <h2>Follow-up priority</h2>
+                      <p className="eyebrow">Anonymous interest</p>
+                      <h2>Popular vehicles</h2>
                     </div>
-                    <span>{summary.topVehicles.length} tracked</span>
+                    <span>Top {popularVehicles.length}</span>
                   </div>
 
-                  {summary.topVehicles.length ? (
+                  {popularVehicles.length ? (
                     <div className="hot-vehicle-list" role="table">
                       <div className="hot-vehicle-heading" role="row">
                         <span>Vehicle</span>
@@ -156,7 +165,7 @@ export default async function AdminAnalyticsPage({
                         <span>Contacts</span>
                         <span>Rate</span>
                       </div>
-                      {summary.topVehicles.map((vehicle) => (
+                      {popularVehicles.map((vehicle) => (
                         <article
                           className="hot-vehicle-row"
                           key={`${vehicle.vehicleId}-${vehicle.vehicleStockNumber}-${vehicle.vehicleLabel}`}
@@ -190,6 +199,34 @@ export default async function AdminAnalyticsPage({
                     </div>
                   ) : (
                     <p className="admin-empty">No vehicle events yet.</p>
+                  )}
+                </section>
+
+                <section className="analytics-card lead-followup-card">
+                  <div className="analytics-card-head">
+                    <div>
+                      <p className="eyebrow">Known customers</p>
+                      <h2>Lead follow-up</h2>
+                    </div>
+                    <span>{leadFollowUps.length} recent</span>
+                  </div>
+
+                  {leadFollowUps.length ? (
+                    <div className="lead-followup-list">
+                      {leadFollowUps.map((lead) => (
+                        <article className="lead-followup-row" key={lead.id}>
+                          <div>
+                            <strong>{lead.name || "Unnamed lead"}</strong>
+                            <small>{leadContactLine(lead)}</small>
+                          </div>
+                          <span>{leadTypeLabel(lead)}</span>
+                          <p>{leadVehicleLine(lead)}</p>
+                          <a href="/admin/inquiries">Open inquiries</a>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-empty">No submitted leads in this range.</p>
                   )}
                 </section>
 
@@ -228,40 +265,41 @@ export default async function AdminAnalyticsPage({
                   )}
                 </section>
 
-                <section className="analytics-card">
+                <section className="analytics-card audience-card">
+                  <div className="analytics-card-head">
+                    <div>
+                      <p className="eyebrow">Audience snapshot</p>
+                      <h2>Visitor profile</h2>
+                    </div>
+                    <span>Anonymous</span>
+                  </div>
+
+                  <div className="audience-grid">
+                    <AnalyticsMiniList
+                      emptyLabel="No location data yet"
+                      items={summary.topVisitorLocations}
+                      title="Top locations"
+                    />
+                    <AnalyticsMiniList
+                      emptyLabel="No device data yet"
+                      items={summary.deviceBreakdown}
+                      title="Devices"
+                    />
+                    <AnalyticsMiniList
+                      emptyLabel="No source data yet"
+                      items={summary.sourceBreakdown}
+                      title="Traffic sources"
+                    />
+                  </div>
+                </section>
+
+                <section className="analytics-card traffic-card">
                   <div className="analytics-card-head">
                     <div>
                       <p className="eyebrow">Behavior detail</p>
                       <h2>Traffic mix</h2>
                     </div>
                     <span>{summary.eventBreakdown.length} types</span>
-                  </div>
-
-                  <div className="analytics-secondary-grid">
-                    <AnalyticsMetricCard
-                      label="Today"
-                      value={summary.todayEvents}
-                      note="All events recorded today"
-                      tone="neutral"
-                    />
-                    <AnalyticsMetricCard
-                      label="Searches"
-                      value={summary.searches}
-                      note="Typed inventory searches"
-                      tone="neutral"
-                    />
-                    <AnalyticsMetricCard
-                      label="Filter actions"
-                      value={summary.filterActions}
-                      note="Filters and resets"
-                      tone="neutral"
-                    />
-                    <AnalyticsMetricCard
-                      label="Photo browses"
-                      value={summary.photoBrowses}
-                      note="Gallery arrow or thumbnail use"
-                      tone="neutral"
-                    />
                   </div>
 
                   {summary.eventBreakdown.length ? (
@@ -306,6 +344,82 @@ function AnalyticsMetricCard({
       <small>{note}</small>
     </div>
   );
+}
+
+function AnalyticsMiniList({
+  emptyLabel,
+  items,
+  title,
+}: {
+  emptyLabel: string;
+  items: Array<{ count: number; label: string }>;
+  title: string;
+}) {
+  return (
+    <div className="analytics-mini-list">
+      <strong>{title}</strong>
+      {items.length ? (
+        items.map((item) => (
+          <div key={item.label}>
+            <span>{item.label}</span>
+            <em>{item.count}</em>
+          </div>
+        ))
+      ) : (
+        <p>{emptyLabel}</p>
+      )}
+    </div>
+  );
+}
+
+function filterInquiriesByRange(
+  inquiries: ContactInquiry[],
+  range: AnalyticsRange,
+) {
+  if (range === "all") {
+    return inquiries;
+  }
+
+  const since = new Date();
+
+  if (range === "today") {
+    since.setHours(0, 0, 0, 0);
+  } else {
+    since.setDate(since.getDate() - (range === "7d" ? 7 : 30));
+  }
+
+  return inquiries.filter((inquiry) => {
+    const createdAt = new Date(inquiry.createdAt);
+    return !Number.isNaN(createdAt.getTime()) && createdAt >= since;
+  });
+}
+
+function leadContactLine(lead: ContactInquiry) {
+  return [lead.phone, lead.email].filter(Boolean).join(" · ") || "No contact";
+}
+
+function leadTypeLabel(lead: ContactInquiry) {
+  if (lead.appointmentDate) {
+    return "Appointment";
+  }
+
+  return "Inquiry";
+}
+
+function leadVehicleLine(lead: ContactInquiry) {
+  const type = labelVehicleType(lead.vehicleType);
+  const stock = lead.vehicleStockNumber ? `Stock ${lead.vehicleStockNumber}` : "";
+  return [type, stock, formatAnalyticsDate(lead.createdAt)]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function labelVehicleType(value: string) {
+  if (value === "new") return "New vehicle";
+  if (value === "used") return "Used vehicle";
+  if (value === "trade") return "Trade-in";
+
+  return value || "Not sure yet";
 }
 
 function normalizeAnalyticsRange(value: string | undefined): AnalyticsRange {

@@ -35,6 +35,10 @@ export type VehicleAnalyticsRow = {
 export type AnalyticsSummary = {
   contactClicks: number;
   contactSubmits: number;
+  deviceBreakdown: Array<{
+    count: number;
+    label: string;
+  }>;
   eventBreakdown: Array<{
     count: number;
     eventType: AnalyticsEventType;
@@ -48,9 +52,17 @@ export type AnalyticsSummary = {
   photoBrowses: number;
   searches: number;
   since: string;
+  sourceBreakdown: Array<{
+    count: number;
+    label: string;
+  }>;
   sortActions: number;
   todayEvents: number;
   topVehicles: VehicleAnalyticsRow[];
+  topVisitorLocations: Array<{
+    count: number;
+    label: string;
+  }>;
   totalEvents: number;
   vehicleViews: number;
 };
@@ -154,12 +166,18 @@ export async function getAnalyticsSummary(
 
   const todayKey = getVancouverDateKey(new Date());
   const eventBreakdownMap = new Map<AnalyticsEventType, number>();
+  const deviceMap = new Map<string, number>();
+  const locationMap = new Map<string, number>();
+  const sourceMap = new Map<string, number>();
 
   for (const event of events) {
     eventBreakdownMap.set(
       event.eventType,
       (eventBreakdownMap.get(event.eventType) ?? 0) + 1,
     );
+    incrementMap(deviceMap, metadataText(event.metadata.deviceType) || "Unknown");
+    incrementMap(locationMap, visitorLocationLabel(event.metadata));
+    incrementMap(sourceMap, trafficSourceLabel(event.metadata, event.pagePath));
   }
 
   return {
@@ -167,6 +185,7 @@ export async function getAnalyticsSummary(
       .length,
     contactSubmits: events.filter((event) => event.eventType === "contact_submit")
       .length,
+    deviceBreakdown: mapToSortedRows(deviceMap, 5),
     eventBreakdown: Array.from(eventBreakdownMap.entries())
       .map(([eventType, count]) => ({ count, eventType }))
       .sort((a, b) => b.count - a.count),
@@ -193,6 +212,7 @@ export async function getAnalyticsSummary(
     searches: events.filter((event) => event.eventType === "inventory_search")
       .length,
     since: since ?? "",
+    sourceBreakdown: mapToSortedRows(sourceMap, 5),
     sortActions: events.filter((event) => event.eventType === "inventory_sort")
       .length,
     todayEvents: events.filter(
@@ -201,6 +221,7 @@ export async function getAnalyticsSummary(
     topVehicles: Array.from(topVehicleMap.values())
       .sort((a, b) => b.contacts - a.contacts || b.views - a.views)
       .slice(0, 30),
+    topVisitorLocations: mapToSortedRows(locationMap, 5),
     totalEvents: events.length,
     vehicleViews: events.filter((event) => event.eventType === "vehicle_view")
       .length,
@@ -230,6 +251,7 @@ function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
   return {
     contactClicks: 0,
     contactSubmits: 0,
+    deviceBreakdown: [],
     eventBreakdown: [],
     events: [],
     featuredVehicleViews: 0,
@@ -240,12 +262,65 @@ function emptySummary(since: string, isAvailable: boolean): AnalyticsSummary {
     photoBrowses: 0,
     searches: 0,
     since,
+    sourceBreakdown: [],
     sortActions: 0,
     todayEvents: 0,
     topVehicles: [],
+    topVisitorLocations: [],
     totalEvents: 0,
     vehicleViews: 0,
   };
+}
+
+function incrementMap(map: Map<string, number>, key: string) {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function mapToSortedRows(map: Map<string, number>, limit: number) {
+  return Array.from(map.entries())
+    .map(([label, count]) => ({ count, label }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, limit);
+}
+
+function visitorLocationLabel(metadata: Record<string, unknown>) {
+  const city = metadataText(metadata.city);
+  const region = metadataText(metadata.region);
+  const country = metadataText(metadata.country);
+
+  if (city && region) {
+    return `${city}, ${region}`;
+  }
+
+  if (city && country) {
+    return `${city}, ${country}`;
+  }
+
+  return country || "Unknown location";
+}
+
+function trafficSourceLabel(metadata: Record<string, unknown>, pagePath: string) {
+  const source = metadataText(metadata.source);
+
+  if (source) {
+    return source;
+  }
+
+  const referrerHost = metadataText(metadata.referrerHost);
+
+  if (referrerHost) {
+    return referrerHost;
+  }
+
+  if (pagePath.startsWith("/admin")) {
+    return "Admin";
+  }
+
+  return "Direct / unknown";
+}
+
+function metadataText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function getVancouverDateKey(value: Date | string) {
