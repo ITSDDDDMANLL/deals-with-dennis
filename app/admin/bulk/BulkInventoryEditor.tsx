@@ -264,6 +264,7 @@ export function BulkInventoryEditor({
       return searchMatches && statusMatches && typeMatches;
     });
   }, [search, statusFilter, typeFilter, vehicles]);
+  const bulkTableMinWidth = Math.max(760, visibleColumns.size * 190 + 240);
 
   function updateVehicle(id: string, patch: Partial<BulkVehicle>) {
     setHasUnsavedChanges(true);
@@ -797,7 +798,10 @@ export function BulkInventoryEditor({
       </div>
 
       <div className="bulk-table-wrap">
-        <table className="bulk-table">
+        <table
+          className={`bulk-table ${visibleColumns.size <= 6 ? "is-compact" : ""}`}
+          style={{ minWidth: `${bulkTableMinWidth}px` }}
+        >
           <thead>
             <tr>
               {isColumnVisible("featured") ? <th>Featured</th> : null}

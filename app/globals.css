@@ -1643,10 +1643,10 @@ h3 {
 }
 
 .bulk-table {
-  min-width: 2180px;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
 }
 
 .bulk-table th {
@@ -1672,7 +1672,8 @@ h3 {
 
 .bulk-table input,
 .bulk-table select {
-  min-width: 126px;
+  min-width: 0;
+  width: 100%;
 }
 
 .bulk-table input[type="checkbox"] {
@@ -1683,7 +1684,18 @@ h3 {
 }
 
 .bulk-table .wide-cell input {
-  min-width: 250px;
+  min-width: 180px;
+}
+
+.bulk-table.is-compact th,
+.bulk-table.is-compact td {
+  padding: 10px;
+}
+
+.bulk-table.is-compact input,
+.bulk-table.is-compact select {
+  min-height: 48px;
+  font-size: 18px;
 }
 
 .bulk-remove-button {
