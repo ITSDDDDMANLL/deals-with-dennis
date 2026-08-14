@@ -1642,6 +1642,24 @@ h3 {
   max-height: calc(100vh - 210px);
 }
 
+.bulk-table-scroll-top {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: #eef6f2;
+}
+
+.bulk-table-scroll-top div {
+  height: 18px;
+}
+
+.bulk-table-scroll-top + .bulk-table-wrap {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .bulk-table {
   width: 100%;
   border-collapse: separate;

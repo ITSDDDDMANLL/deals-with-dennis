@@ -1120,6 +1120,14 @@ export function AdminInventoryManager({
               </div>
               <div className="editor-head-actions">
                 <button
+                  className="button primary"
+                  disabled={saving}
+                  onClick={saveVehiclesOnly}
+                  type="button"
+                >
+                  {saving ? "Saving..." : "Save All Vehicle Changes"}
+                </button>
+                <button
                   className="button danger"
                   onClick={() => removeVehicle(selectedVehicle.id)}
                   type="button"

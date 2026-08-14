@@ -76,7 +76,7 @@ Return exactly this shape:
       "model": "F-150",
       "trim": "Lariat",
       "priceLabel": "$49,995",
-      "mileageLabel": "42,000 km",
+      "mileageLabel": "42000",
       "stockNumber": "T12345",
       "vin": "",
       "className": "Truck",
@@ -101,6 +101,7 @@ Rules:
 - transmission should be Manual, Auto, Other, or empty.
 - fuel should be Diesel, Gasoline, Hybrid, EV, PHEV, Other, or empty.
 - className should be SUV, Crossover, Sedan, Coupe, Hatchback, Wagon, Convertible, Truck, Pickup Truck, Van, Minivan, Cargo Van, Passenger Van, Commercial, Chassis Cab, Other, or empty.
+- mileageLabel should contain digits only. Do not include "km" or commas.
 - Unknown fields should be empty strings, except year can be 0.`;
 
 type BulkColumnKey =
@@ -197,6 +198,8 @@ export function BulkInventoryEditor({
   initialVehicles: Vehicle[];
 }) {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const tableScrollTopRef = useRef<HTMLDivElement | null>(null);
+  const tableScrollBottomRef = useRef<HTMLDivElement | null>(null);
   const [baselineVehicles, setBaselineVehicles] = useState<Vehicle[]>(initialVehicles);
   const [vehicles, setVehicles] = useState<BulkVehicle[]>(() =>
     initialVehicles.map((vehicle) => ({ ...vehicle, isDirty: false })),
@@ -265,6 +268,17 @@ export function BulkInventoryEditor({
     });
   }, [search, statusFilter, typeFilter, vehicles]);
   const bulkTableMinWidth = Math.max(760, visibleColumns.size * 190 + 240);
+
+  function syncTableScroll(source: "bottom" | "top") {
+    const from = source === "top" ? tableScrollTopRef.current : tableScrollBottomRef.current;
+    const to = source === "top" ? tableScrollBottomRef.current : tableScrollTopRef.current;
+
+    if (!from || !to || to.scrollLeft === from.scrollLeft) {
+      return;
+    }
+
+    to.scrollLeft = from.scrollLeft;
+  }
 
   function updateVehicle(id: string, patch: Partial<BulkVehicle>) {
     setHasUnsavedChanges(true);
@@ -797,7 +811,19 @@ export function BulkInventoryEditor({
         </div>
       </div>
 
-      <div className="bulk-table-wrap">
+      <div
+        className="bulk-table-scroll-top"
+        onScroll={() => syncTableScroll("top")}
+        ref={tableScrollTopRef}
+      >
+        <div style={{ width: `${bulkTableMinWidth}px` }} />
+      </div>
+
+      <div
+        className="bulk-table-wrap"
+        onScroll={() => syncTableScroll("bottom")}
+        ref={tableScrollBottomRef}
+      >
         <table
           className={`bulk-table ${visibleColumns.size <= 6 ? "is-compact" : ""}`}
           style={{ minWidth: `${bulkTableMinWidth}px` }}
@@ -1616,13 +1642,9 @@ function normalizeMileageLabel(value: string) {
     return "";
   }
 
-  if (/[a-z]/i.test(raw)) {
-    return raw;
-  }
-
   const digits = raw.replace(/[^\d]/g, "");
 
-  return digits ? `${Number(digits).toLocaleString("en-CA")} km` : raw;
+  return digits || raw;
 }
 
 function getPublishSummary(
@@ -1703,6 +1725,8 @@ const bulkCompareFields: {
   { key: "claimStatus", label: "Claim" },
   { key: "isFeatured", label: "Featured" },
   { key: "highlights", label: "Highlights" },
+  { key: "imageUrls", label: "Images" },
+  { key: "vehiclePhotos", label: "Photos" },
 ];
 
 function getChangedFields(before: Vehicle, after: Vehicle) {
@@ -1712,6 +1736,10 @@ function getChangedFields(before: Vehicle, after: Vehicle) {
 }
 
 function normalizeCompareValue(value: unknown) {
+  if (Array.isArray(value) || (value && typeof value === "object")) {
+    return JSON.stringify(value ?? null);
+  }
+
   if (typeof value === "boolean") {
     return value ? "true" : "false";
   }

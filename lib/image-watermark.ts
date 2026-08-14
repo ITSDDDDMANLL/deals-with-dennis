@@ -15,7 +15,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-sharp-text-bars-v2";
+const watermarkRenderVersion = "2026-08-14-svg-full-bars-v3";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -114,34 +114,21 @@ async function applyDealsWithDennisWatermark(
   const topLineTwo = "Deals with Dennis";
   const bottomLineOne = [branding.phone, branding.website].filter(Boolean).join(" | ");
   const bottomLineTwo = "Cam Clark Ford Richmond | Dealer #10904";
-  const topBar = await createBarOverlay(width, barHeight, 0.86);
-  const bottomBar = await createBarOverlay(width, barHeight, 0.88);
-  const topText = await createWatermarkTextOverlay({
+  const overlay = Buffer.from(createWatermarkSvg({
     barHeight,
+    bottomLineOne,
+    bottomLineTwo,
+    height,
     lineGap,
     primaryFontSize,
-    primaryText: topLineOne,
     secondaryFontSize,
-    secondaryText: topLineTwo,
+    topLineOne,
+    topLineTwo,
     width,
-  });
-  const bottomText = await createWatermarkTextOverlay({
-    barHeight,
-    lineGap,
-    primaryFontSize,
-    primaryText: bottomLineOne,
-    secondaryFontSize,
-    secondaryText: bottomLineTwo,
-    width,
-  });
+  }));
 
   return base
-    .composite([
-      { input: topBar, left: 0, top: 0 },
-      { input: bottomBar, left: 0, top: height - barHeight },
-      { input: topText, left: 0, top: 0 },
-      { input: bottomText, left: 0, top: height - barHeight },
-    ])
+    .composite([{ input: overlay, left: 0, top: 0 }])
     .jpeg({ mozjpeg: true, quality: 88 })
     .toBuffer();
 }
