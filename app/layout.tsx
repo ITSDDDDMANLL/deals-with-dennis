@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dennis Liu · Vancouver Sales Consultant",
+  title: {
+    default: "Deals with Dennis",
+    template: "%s · Deals with Dennis",
+  },
   description:
-    "Dennis Liu at Cam Clark Ford Richmond helps Vancouver and Richmond drivers find new and used Ford vehicles.",
+    "Deals with Dennis helps Vancouver and Richmond drivers find new and used vehicles with practical inventory updates.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
 };
 

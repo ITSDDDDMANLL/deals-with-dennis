@@ -14,7 +14,10 @@ export default async function InventoryPage() {
       <header className="site-header">
         <nav className="nav-shell" aria-label="Inventory navigation">
           <a className="brand" href="/">
-            Deals with Dennis <span>Inventory</span>
+            <span className="brand-mark">DWD</span>
+            <span className="brand-copy">
+              Deals with Dennis <span>Inventory</span>
+            </span>
           </a>
           <div className="nav-links">
             <a href="/">Featured</a>

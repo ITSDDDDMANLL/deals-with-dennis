@@ -40,7 +40,10 @@ export function AdminHeader({ section }: { section: string }) {
     <header className="site-header admin-site-header">
       <nav className="nav-shell admin-nav-shell" aria-label="Admin navigation">
         <a className="brand" href="/admin">
-          Deals with Dennis <span>{section}</span>
+          <span className="brand-mark">DWD</span>
+          <span className="brand-copy">
+            Deals with Dennis <span>{section}</span>
+          </span>
         </a>
         <div className="nav-links admin-nav-links">
           {adminLinks.map((link) => (

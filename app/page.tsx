@@ -19,7 +19,10 @@ export default async function Home() {
       <header className="site-header">
         <nav className="nav-shell" aria-label="Primary navigation">
           <a className="brand" href="#top" aria-label="Dennis Liu home">
-            {content.brandLabel} <span>{content.brandSubLabel}</span>
+            <span className="brand-mark">DWD</span>
+            <span className="brand-copy">
+              {content.brandLabel} <span>{content.brandSubLabel}</span>
+            </span>
           </a>
           <div className="nav-links">
             <a href="#inventory">Featured</a>

@@ -74,18 +74,42 @@ textarea {
 
 .brand {
   display: inline-flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 9px;
   font-weight: 950;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.brand span {
+.brand-copy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--ink);
+}
+
+.brand-copy span {
   color: var(--accent);
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.brand-mark {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 2px solid var(--accent);
+  border-radius: 9px;
+  background: #06110f;
+  box-shadow: inset 0 -4px 0 rgba(15, 106, 84, 0.6);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.9px;
+  line-height: 1;
 }
 
 .nav-links {
