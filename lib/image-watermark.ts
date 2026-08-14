@@ -15,7 +15,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-full-width-bars";
+const watermarkRenderVersion = "2026-08-14-system-font-bars";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -158,71 +158,87 @@ function createWatermarkSvg({
 }) {
   const textMaxWidth = Math.max(1, width - 48);
   const fittedPrimaryFontSize = Math.min(
-    fitBitmapFontSize(topLineOne, primaryFontSize, textMaxWidth),
-    fitBitmapFontSize(bottomLineOne, primaryFontSize, textMaxWidth),
+    fitSvgFontSize(topLineOne, primaryFontSize, textMaxWidth, 0.58),
+    fitSvgFontSize(bottomLineOne, primaryFontSize, textMaxWidth, 0.58),
   );
   const fittedSecondaryFontSize = Math.min(
-    fitBitmapFontSize(topLineTwo, secondaryFontSize, textMaxWidth),
-    fitBitmapFontSize(bottomLineTwo, secondaryFontSize, textMaxWidth),
-  );
-  const topPrimary = centerBitmapLine(topLineOne, fittedPrimaryFontSize, width);
-  const topSecondary = centerBitmapLine(topLineTwo, fittedSecondaryFontSize, width);
-  const bottomPrimary = centerBitmapLine(bottomLineOne, fittedPrimaryFontSize, width);
-  const bottomSecondary = centerBitmapLine(
-    bottomLineTwo,
-    fittedSecondaryFontSize,
-    width,
+    fitSvgFontSize(topLineTwo, secondaryFontSize, textMaxWidth, 0.56),
+    fitSvgFontSize(bottomLineTwo, secondaryFontSize, textMaxWidth, 0.56),
   );
   const topContentHeight =
-    getBitmapTextHeight(fittedPrimaryFontSize) +
+    fittedPrimaryFontSize +
     lineGap +
-    getBitmapTextHeight(fittedSecondaryFontSize);
-  const topStart = Math.max(8, Math.round((barHeight - topContentHeight) / 2));
+    fittedSecondaryFontSize;
+  const topStart = Math.max(10, Math.round((barHeight - topContentHeight) / 2));
   const bottomContentHeight =
-    getBitmapTextHeight(fittedPrimaryFontSize) +
+    fittedPrimaryFontSize +
     lineGap +
-    getBitmapTextHeight(fittedSecondaryFontSize);
+    fittedSecondaryFontSize;
   const bottomStart =
-    height - barHeight + Math.max(8, Math.round((barHeight - bottomContentHeight) / 2));
-  const topText = [
-    renderBitmapText({
-      fontSize: fittedPrimaryFontSize,
-      text: topLineOne,
-      x: topPrimary.x,
-      y: topStart,
-    }),
-    renderBitmapText({
-      fill: "#dbeee6",
-      fontSize: fittedSecondaryFontSize,
-      text: topLineTwo,
-      x: topSecondary.x,
-      y: topStart + getBitmapTextHeight(fittedPrimaryFontSize) + lineGap,
-    }),
-  ].join("");
-  const bottomText = [
-    renderBitmapText({
-      fontSize: fittedPrimaryFontSize,
-      text: bottomLineOne,
-      x: bottomPrimary.x,
-      y: bottomStart,
-    }),
-    renderBitmapText({
-      fill: "#dbeee6",
-      fontSize: fittedSecondaryFontSize,
-      text: bottomLineTwo,
-      x: bottomSecondary.x,
-      y: bottomStart + getBitmapTextHeight(fittedPrimaryFontSize) + lineGap,
-    }),
-  ].join("");
+    height - barHeight + Math.max(10, Math.round((barHeight - bottomContentHeight) / 2));
+  const centerX = Math.round(width / 2);
+  const topPrimaryY = topStart + Math.round(fittedPrimaryFontSize * 0.55);
+  const topSecondaryY =
+    topStart +
+    fittedPrimaryFontSize +
+    lineGap +
+    Math.round(fittedSecondaryFontSize * 0.55);
+  const bottomPrimaryY = bottomStart + Math.round(fittedPrimaryFontSize * 0.55);
+  const bottomSecondaryY =
+    bottomStart +
+    fittedPrimaryFontSize +
+    lineGap +
+    Math.round(fittedSecondaryFontSize * 0.55);
 
   return `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .watermark-primary {
+          fill: #ffffff;
+          font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+          font-weight: 800;
+        }
+
+        .watermark-secondary {
+          fill: #dbeee6;
+          font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+          font-weight: 700;
+        }
+      </style>
       <rect x="0" y="0" width="${width}" height="${barHeight}" fill="#051f19" opacity="0.86"/>
       <rect x="0" y="${height - barHeight}" width="${width}" height="${barHeight}" fill="#051f19" opacity="0.88"/>
-      ${topText}
-      ${bottomText}
+      <text class="watermark-primary" x="${centerX}" y="${topPrimaryY}" font-size="${fittedPrimaryFontSize}" text-anchor="middle">${escapeSvgText(topLineOne)}</text>
+      <text class="watermark-secondary" x="${centerX}" y="${topSecondaryY}" font-size="${fittedSecondaryFontSize}" text-anchor="middle">${escapeSvgText(topLineTwo)}</text>
+      <text class="watermark-primary" x="${centerX}" y="${bottomPrimaryY}" font-size="${fittedPrimaryFontSize}" text-anchor="middle">${escapeSvgText(bottomLineOne)}</text>
+      <text class="watermark-secondary" x="${centerX}" y="${bottomSecondaryY}" font-size="${fittedSecondaryFontSize}" text-anchor="middle">${escapeSvgText(bottomLineTwo)}</text>
     </svg>
   `;
+}
+
+function fitSvgFontSize(
+  text: string,
+  preferredFontSize: number,
+  maxWidth: number,
+  averageCharacterWidth: number,
+) {
+  let fontSize = preferredFontSize;
+
+  while (
+    fontSize > 12 &&
+    text.length * fontSize * averageCharacterWidth > maxWidth
+  ) {
+    fontSize -= 1;
+  }
+
+  return fontSize;
+}
+
+function escapeSvgText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function centerBitmapLine(text: string, fontSize: number, containerWidth: number) {
