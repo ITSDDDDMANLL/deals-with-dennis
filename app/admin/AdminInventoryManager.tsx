@@ -105,6 +105,8 @@ export function AdminInventoryManager({
   const [selectedId, setSelectedId] = useState(initialVehicles[0]?.id ?? "");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedVehicleChanges, setHasUnsavedVehicleChanges] =
+    useState(false);
   const [watermarking, setWatermarking] = useState(false);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState("all");
@@ -123,6 +125,21 @@ export function AdminInventoryManager({
   useEffect(() => {
     void loadInventory();
   }, []);
+
+  useEffect(() => {
+    if (!hasUnsavedVehicleChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedVehicleChanges]);
 
   const selectedVehicle = useMemo(
     () => vehicles.find((vehicle) => vehicle.id === selectedId) ?? vehicles[0],
@@ -194,11 +211,25 @@ export function AdminInventoryManager({
   ]);
 
   function updateVehicle(id: string, patch: Partial<EditableVehicle>) {
+    setHasUnsavedVehicleChanges(true);
     setVehicles((current) =>
       current.map((vehicle) =>
         vehicle.id === id ? { ...vehicle, ...patch } : vehicle,
       ),
     );
+  }
+
+  function closeVehicleEditor() {
+    if (
+      hasUnsavedVehicleChanges &&
+      !window.confirm(
+        "Close editor? Your changes will stay on this admin page, but they are not saved to Supabase yet. Use Save All Vehicle Changes to publish them.",
+      )
+    ) {
+      return;
+    }
+
+    setIsEditorOpen(false);
   }
 
   function openVehicleEditor(id: string) {
@@ -399,7 +430,7 @@ export function AdminInventoryManager({
       vehiclePhotos: currentPhotos,
     });
     setDraggedImageIndex(null);
-    setNotice("Image order updated. Click Save Vehicles to publish it.");
+    setNotice("Image order updated. Click Save All Vehicle Changes to publish it.");
   }
 
   async function applyWatermarkToVehicleImages(id: string) {
@@ -452,7 +483,7 @@ export function AdminInventoryManager({
     setWatermarking(false);
     setPhotoPreviewMode("watermarked");
     setNotice(
-      `Watermark all complete: ${totalSucceeded} photo${totalSucceeded === 1 ? "" : "s"} succeeded, ${totalFailed} failed. Click Save Vehicles to publish.`,
+      `Watermark all complete: ${totalSucceeded} photo${totalSucceeded === 1 ? "" : "s"} succeeded, ${totalFailed} failed. Click Save All Vehicle Changes to publish.`,
     );
   }
 
@@ -476,7 +507,9 @@ export function AdminInventoryManager({
       vehiclePhotos: nextPhotos,
     });
     setPhotoPreviewMode("original");
-    setNotice("Watermarks removed for this vehicle. Click Save Vehicles to publish originals.");
+    setNotice(
+      "Watermarks removed for this vehicle. Click Save All Vehicle Changes to publish originals.",
+    );
   }
 
   function removeWatermarksFromAllVehicles() {
@@ -497,6 +530,7 @@ export function AdminInventoryManager({
       return;
     }
 
+    setHasUnsavedVehicleChanges(true);
     setVehicles((currentVehicles) =>
       currentVehicles.map((vehicle) => {
         const photos = getVehiclePhotos(vehicle);
@@ -520,7 +554,9 @@ export function AdminInventoryManager({
       }),
     );
     setPhotoPreviewMode("original");
-    setNotice("Watermarks removed from all vehicles. Click Save Vehicles to publish originals.");
+    setNotice(
+      "Watermarks removed from all vehicles. Click Save All Vehicle Changes to publish originals.",
+    );
   }
 
   async function processVehicleWatermarks(
@@ -620,7 +656,7 @@ export function AdminInventoryManager({
 
     if (mode !== "bulk") {
       setNotice(
-        `${mode === "auto" ? "Upload and watermark complete" : "Watermark complete"}: ${result.succeeded ?? 0} succeeded, ${result.failed ?? 0} failed. Click Save Vehicles to publish.`,
+        `${mode === "auto" ? "Upload and watermark complete" : "Watermark complete"}: ${result.succeeded ?? 0} succeeded, ${result.failed ?? 0} failed. Click Save All Vehicle Changes to publish.`,
       );
     }
 
@@ -691,20 +727,26 @@ export function AdminInventoryManager({
       deleted?: number;
     };
     const deletedCount = inventoryResult.deleted ?? deletedVehicles.length;
+    const didSaveToSupabase = inventoryResult.mode === "supabase";
 
     setNotice(
-      inventoryResult.mode === "supabase"
+      didSaveToSupabase
         ? `Saved ${inventoryResult.count ?? vehiclesToSave.length} vehicles to Supabase${deletedCount ? `, including ${deletedCount} deletion${deletedCount === 1 ? "" : "s"}` : ""}.`
         : "Vehicle save did not reach Supabase. Check server environment variables.",
     );
-    setDeletedVehicles([]);
+    if (didSaveToSupabase) {
+      setDeletedVehicles([]);
+      setHasUnsavedVehicleChanges(false);
+    }
     setSaving(false);
   }
 
   async function reloadVehicles() {
-    const confirmed = window.confirm(
-      "Reload vehicles from Supabase? Unsaved vehicle edits on this page will be discarded.",
-    );
+    const confirmed =
+      !hasUnsavedVehicleChanges ||
+      window.confirm(
+        "Reload vehicles from Supabase? Unsaved vehicle edits on this page will be discarded.",
+      );
 
     if (!confirmed) {
       return;
@@ -712,16 +754,18 @@ export function AdminInventoryManager({
 
     await loadInventory(selectedId);
     setDeletedVehicles([]);
+    setHasUnsavedVehicleChanges(false);
     setNotice("Vehicles reloaded from Supabase.");
   }
 
   function addVehicle() {
     const id = `vehicle-${Date.now()}`;
     const next = { ...blankVehicle, id };
+    setHasUnsavedVehicleChanges(true);
     setVehicles((current) => [next, ...current]);
     setSelectedId(id);
     setIsEditorOpen(true);
-    setNotice("New vehicle added. Click Save Vehicles to publish it.");
+    setNotice("New vehicle added. Click Save All Vehicle Changes to publish it.");
   }
 
   function removeVehicle(id: string) {
@@ -733,13 +777,14 @@ export function AdminInventoryManager({
 
     const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
     const confirmed = window.confirm(
-      `Remove ${vehicleName || "this vehicle"} from inventory? It will move to Pending deletions until you save vehicles.`,
+      `Remove ${vehicleName || "this vehicle"} from inventory? It will move to Pending deletions until you save all vehicle changes.`,
     );
 
     if (!confirmed) {
       return;
     }
 
+    setHasUnsavedVehicleChanges(true);
     setVehicles((current) => {
       const next = current.filter((vehicle) => vehicle.id !== id);
       setSelectedId(next[0]?.id ?? "");
@@ -750,7 +795,7 @@ export function AdminInventoryManager({
       current.some((deleted) => deleted.id === id) ? current : [vehicle, ...current],
     );
     setNotice(
-      "Vehicle moved to Pending deletions. Click Save Vehicles to delete it from Supabase.",
+      "Vehicle moved to Pending deletions. Click Save All Vehicle Changes to delete it from Supabase.",
     );
   }
 
@@ -761,6 +806,7 @@ export function AdminInventoryManager({
       return;
     }
 
+    setHasUnsavedVehicleChanges(true);
     setVehicles((current) =>
       current.some((item) => item.id === id) ? current : [vehicle, ...current],
     );
@@ -779,6 +825,7 @@ export function AdminInventoryManager({
       return;
     }
 
+    setHasUnsavedVehicleChanges(true);
     setVehicles((current) => {
       const currentIds = new Set(current.map((vehicle) => vehicle.id));
       const vehiclesToRestore = deletedVehicles.filter(
@@ -833,10 +880,13 @@ export function AdminInventoryManager({
       }),
     );
 
+    setHasUnsavedVehicleChanges(true);
     setVehicles(normalized);
     setSelectedId(normalized[0]?.id ?? "");
     setDeletedVehicles([]);
-    setNotice(`Imported ${normalized.length} vehicles. Click Save Vehicles to publish them.`);
+    setNotice(
+      `Imported ${normalized.length} vehicles. Click Save All Vehicle Changes to publish them.`,
+    );
     event.target.value = "";
   }
 
@@ -854,6 +904,15 @@ export function AdminInventoryManager({
         <div>
           <p className="eyebrow">Supabase inventory</p>
           <h2>{vehicles.length} vehicles</h2>
+          <p
+            className={`admin-save-state ${
+              hasUnsavedVehicleChanges ? "is-unsaved" : "is-saved"
+            }`}
+          >
+            {hasUnsavedVehicleChanges
+              ? "Unsaved vehicle changes"
+              : "Saved to Supabase"}
+          </p>
         </div>
         <div className="admin-actions">
           <label className="button secondary file-button">
@@ -897,7 +956,7 @@ export function AdminInventoryManager({
             onClick={saveVehiclesOnly}
             type="button"
           >
-            {saving ? "Saving..." : "Save Vehicles"}
+            {saving ? "Saving to Supabase..." : "Save All Vehicle Changes"}
           </button>
         </div>
       </div>
@@ -1047,7 +1106,7 @@ export function AdminInventoryManager({
               <button
                 aria-label="Close editor"
                 className="admin-editor-backdrop"
-                onClick={() => setIsEditorOpen(false)}
+                onClick={closeVehicleEditor}
                 type="button"
               />
               <form className="admin-editor admin-editor-dialog">
@@ -1069,7 +1128,7 @@ export function AdminInventoryManager({
                 </button>
                 <button
                   className="button secondary"
-                  onClick={() => setIsEditorOpen(false)}
+                  onClick={closeVehicleEditor}
                   type="button"
                 >
                   Close Editor
@@ -1407,7 +1466,7 @@ export function AdminInventoryManager({
                 onClick={saveVehiclesOnly}
                 type="button"
               >
-                {saving ? "Saving..." : "Save Vehicles"}
+                {saving ? "Saving to Supabase..." : "Save All Vehicle Changes"}
               </button>
             </div>
               </form>

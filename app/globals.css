@@ -2742,6 +2742,23 @@ h3 {
   margin-bottom: 0;
 }
 
+.admin-save-state {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-save-state.is-unsaved {
+  color: #9a4b18;
+}
+
+.admin-save-state.is-saved {
+  color: var(--green);
+}
+
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
