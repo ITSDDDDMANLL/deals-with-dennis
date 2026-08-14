@@ -1,6 +1,13 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   ClaimStatus,
   Vehicle,
@@ -48,7 +55,6 @@ const editableFields = [
   "trim",
   "stockNumber",
   "vin",
-  "className",
   "exteriorColor",
   "priceLabel",
   "mileageLabel",
@@ -61,6 +67,23 @@ const claimStatusOptions: { label: string; value: ClaimStatus }[] = [
   { label: "No claim", value: "no-claim" },
   { label: "Minor claim", value: "minor-claim" },
   { label: "Claim over $5k", value: "claim-over-5k" },
+];
+const classNameOptions = [
+  "SUV",
+  "Crossover",
+  "Sedan",
+  "Coupe",
+  "Hatchback",
+  "Wagon",
+  "Convertible",
+  "Truck",
+  "Pickup Truck",
+  "Van",
+  "Minivan",
+  "Cargo Van",
+  "Passenger Van",
+  "Commercial",
+  "Chassis Cab",
 ];
 const drivetrainOptions = ["FWD", "RWD", "AWD", "4x4"];
 const transmissionOptions = ["Manual", "Auto"];
@@ -1244,32 +1267,47 @@ export function AdminInventoryManager({
               </label>
 
               {editableFields.map((field) => (
-                <label key={field}>
-                  <span>{fieldLabel(field)}</span>
-                  <input
-                    inputMode={field === "priceLabel" ? "numeric" : undefined}
-                    value={String(selectedVehicle[field] ?? "")}
-                    onChange={(event) =>
-                      updateVehicle(selectedVehicle.id, {
-                        [field]:
-                          field === "year"
-                            ? Number(event.target.value)
-                            : event.target.value,
-                      })
-                    }
-                    onBlur={(event) => {
-                      if (field !== "priceLabel") {
-                        return;
+                <Fragment key={field}>
+                  <label>
+                    <span>{fieldLabel(field)}</span>
+                    <input
+                      inputMode={field === "priceLabel" ? "numeric" : undefined}
+                      value={String(selectedVehicle[field] ?? "")}
+                      onChange={(event) =>
+                        updateVehicle(selectedVehicle.id, {
+                          [field]:
+                            field === "year"
+                              ? Number(event.target.value)
+                              : event.target.value,
+                        })
                       }
+                      onBlur={(event) => {
+                        if (field !== "priceLabel") {
+                          return;
+                        }
 
-                      updateVehicle(selectedVehicle.id, {
-                        priceLabel: normalizePriceLabel(event.target.value),
-                      });
-                    }}
-                    placeholder={field === "priceLabel" ? "$24,995" : undefined}
-                    type={field === "year" ? "number" : "text"}
-                  />
-                </label>
+                        updateVehicle(selectedVehicle.id, {
+                          priceLabel: normalizePriceLabel(event.target.value),
+                        });
+                      }}
+                      placeholder={
+                        field === "priceLabel" ? "$24,995" : undefined
+                      }
+                      type={field === "year" ? "number" : "text"}
+                    />
+                  </label>
+
+                  {field === "vin" ? (
+                    <SelectWithOther
+                      label="Class"
+                      onChange={(value) =>
+                        updateVehicle(selectedVehicle.id, { className: value })
+                      }
+                      options={classNameOptions}
+                      value={selectedVehicle.className ?? ""}
+                    />
+                  ) : null}
+                </Fragment>
               ))}
 
               <SelectWithOther
@@ -1544,7 +1582,6 @@ function fieldLabel(field: EditableField) {
     trim: "Trim",
     stockNumber: "Stock #",
     vin: "VIN",
-    className: "Class",
     exteriorColor: "Color",
     priceLabel: "Price",
     mileageLabel: "Mileage",
