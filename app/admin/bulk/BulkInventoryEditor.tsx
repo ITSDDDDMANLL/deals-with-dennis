@@ -61,6 +61,48 @@ const claimStatusOptions: { label: string; value: ClaimStatus }[] = [
   { label: "Claim over $5k", value: "claim-over-5k" },
 ];
 
+const chatGptVehiclePrompt = `You are helping extract vehicle inventory for Deals with Dennis.
+
+I will upload one or more screenshots. Read every visible vehicle and return JSON only.
+
+Return exactly this shape:
+{
+  "vehicles": [
+    {
+      "type": "used",
+      "status": "available",
+      "year": 2024,
+      "make": "Ford",
+      "model": "F-150",
+      "trim": "Lariat",
+      "priceLabel": "$49,995",
+      "mileageLabel": "42,000 km",
+      "stockNumber": "T12345",
+      "vin": "",
+      "className": "Truck",
+      "exteriorColor": "White",
+      "drivetrain": "4x4",
+      "transmission": "Auto",
+      "fuel": "Gasoline",
+      "claimStatus": "unknown",
+      "highlights": "",
+      "details": ""
+    }
+  ]
+}
+
+Rules:
+- Return JSON only. Do not wrap it in markdown.
+- If a real price is visible, status is "available".
+- If price is missing, CALL, TBD, or Ask for pricing, status is "incoming".
+- type must be "new" or "used". Default to "used" if unclear.
+- claimStatus must be one of: "unknown", "no-claim", "minor-claim", "claim-over-5k".
+- drivetrain should be FWD, RWD, AWD, 4x4, Other, or empty.
+- transmission should be Manual, Auto, Other, or empty.
+- fuel should be Diesel, Gasoline, Hybrid, EV, PHEV, Other, or empty.
+- className should be SUV, Crossover, Sedan, Coupe, Hatchback, Wagon, Convertible, Truck, Pickup Truck, Van, Minivan, Cargo Van, Passenger Van, Commercial, Chassis Cab, Other, or empty.
+- Unknown fields should be empty strings, except year can be 0.`;
+
 type BulkColumnKey =
   | "featured"
   | "type"
@@ -163,6 +205,8 @@ export function BulkInventoryEditor({
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [isChatGptModalOpen, setIsChatGptModalOpen] = useState(false);
+  const [chatGptResult, setChatGptResult] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [selectedImageVehicleId, setSelectedImageVehicleId] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<Set<BulkColumnKey>>(
@@ -285,6 +329,48 @@ export function BulkInventoryEditor({
 
   function showCoreColumns() {
     setVisibleColumns(new Set(defaultVisibleColumns));
+  }
+
+  async function copyChatGptPrompt() {
+    try {
+      await navigator.clipboard.writeText(chatGptVehiclePrompt);
+      setNotice("ChatGPT prompt copied. Upload screenshots to ChatGPT, then paste the returned JSON here.");
+    } catch (error) {
+      setNotice(`Could not copy prompt automatically: ${getErrorMessage(error)}`);
+    }
+  }
+
+  function importChatGptResult() {
+    let extractedVehicles: ExtractedVehicle[];
+
+    try {
+      extractedVehicles = parseChatGptVehicleResult(chatGptResult);
+    } catch (error) {
+      setNotice(`ChatGPT import failed: ${getErrorMessage(error)}`);
+      return;
+    }
+
+    if (!extractedVehicles.length) {
+      setNotice("ChatGPT import failed: no vehicle rows were found in the pasted result.");
+      return;
+    }
+
+    const importedVehicles = extractedVehicles.map((vehicle) =>
+      normalizeBulkVehicle({
+        ...blankVehicle,
+        ...vehicle,
+        id: vehicle.id || `chatgpt-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        isDirty: true,
+      }),
+    );
+
+    setVehicles((current) => [...importedVehicles, ...current]);
+    setHasUnsavedChanges(true);
+    setChatGptResult("");
+    setIsChatGptModalOpen(false);
+    setNotice(
+      `Imported ${importedVehicles.length} draft row${importedVehicles.length === 1 ? "" : "s"} from ChatGPT. Review before publishing.`,
+    );
   }
 
   async function uploadBulkVehicleImages(event: ChangeEvent<HTMLInputElement>) {
@@ -625,6 +711,13 @@ export function BulkInventoryEditor({
               type="file"
             />
           </label>
+          <button
+            className="button secondary"
+            onClick={() => setIsChatGptModalOpen(true)}
+            type="button"
+          >
+            Prepare for ChatGPT
+          </button>
           <button className="button secondary" onClick={() => addRow()} type="button">
             Add Row
           </button>
@@ -1014,6 +1107,88 @@ export function BulkInventoryEditor({
         </div>
       ) : null}
 
+      {isChatGptModalOpen ? (
+        <div
+          aria-label="Prepare ChatGPT import"
+          aria-modal="true"
+          className="bulk-confirm-modal"
+          role="dialog"
+        >
+          <div
+            className="bulk-confirm-backdrop"
+            onClick={() => setIsChatGptModalOpen(false)}
+          />
+          <div className="bulk-confirm-dialog chatgpt-import-dialog">
+            <div className="bulk-confirm-head">
+              <div>
+                <p className="eyebrow">No API needed</p>
+                <h3>Prepare for ChatGPT</h3>
+              </div>
+              <button
+                aria-label="Close ChatGPT import"
+                className="vehicle-modal-close"
+                onClick={() => setIsChatGptModalOpen(false)}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="chatgpt-import-grid">
+              <section className="chatgpt-import-panel">
+                <div>
+                  <strong>1. Copy this prompt</strong>
+                  <p>Open ChatGPT, paste this prompt, then upload your screenshots there.</p>
+                </div>
+                <textarea readOnly value={chatGptVehiclePrompt} />
+                <div className="chatgpt-import-actions">
+                  <button className="button secondary" onClick={copyChatGptPrompt} type="button">
+                    Copy Prompt
+                  </button>
+                  <a
+                    className="button primary"
+                    href="https://chatgpt.com/"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open ChatGPT
+                  </a>
+                </div>
+              </section>
+
+              <section className="chatgpt-import-panel">
+                <div>
+                  <strong>2. Paste ChatGPT result</strong>
+                  <p>Paste the JSON response here. Imported rows stay as drafts until publishing.</p>
+                </div>
+                <textarea
+                  onChange={(event) => setChatGptResult(event.target.value)}
+                  placeholder='{"vehicles":[{"year":2024,"make":"Ford","model":"F-150"}]}'
+                  value={chatGptResult}
+                />
+                <div className="chatgpt-import-actions">
+                  <button
+                    className="button secondary"
+                    onClick={() => setIsChatGptModalOpen(false)}
+                    type="button"
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="button primary"
+                    disabled={!chatGptResult.trim()}
+                    onClick={importChatGptResult}
+                    type="button"
+                  >
+                    Import Rows
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {publishSummary ? (
         <div
           aria-modal="true"
@@ -1193,6 +1368,257 @@ function stripBulkFields(vehicle: BulkVehicle): Vehicle {
     vin: vehicle.vin,
     year: vehicle.year,
   };
+}
+
+function parseChatGptVehicleResult(value: string): ExtractedVehicle[] {
+  const cleaned = stripCodeFence(value.trim());
+
+  if (!cleaned) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(cleaned) as unknown;
+    const rows = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { vehicles?: unknown }).vehicles)
+        ? (parsed as { vehicles: unknown[] }).vehicles
+        : [];
+
+    return rows
+      .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+      .map(normalizeImportedVehicle);
+  } catch {
+    return parseDelimitedVehicleResult(cleaned);
+  }
+}
+
+function stripCodeFence(value: string) {
+  return value
+    .replace(/^```(?:json|csv)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function parseDelimitedVehicleResult(value: string): ExtractedVehicle[] {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    throw new Error("Paste JSON from ChatGPT, or CSV with a header row.");
+  }
+
+  const delimiter = lines[0].includes("\t") ? "\t" : ",";
+  const headers = parseDelimitedLine(lines[0], delimiter).map(normalizeImportKey);
+
+  return lines.slice(1).map((line) => {
+    const values = parseDelimitedLine(line, delimiter);
+    const row: Record<string, unknown> = {};
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] ?? "";
+    });
+
+    return normalizeImportedVehicle(row);
+  });
+}
+
+function parseDelimitedLine(line: string, delimiter: string) {
+  const values: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      current += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      values.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current.trim());
+
+  return values;
+}
+
+function normalizeImportedVehicle(row: Record<string, unknown>): ExtractedVehicle {
+  const priceLabel = getImportedValue(row, "priceLabel", "price", "retail", "askingPrice");
+  const normalizedPrice = normalizePriceLabel(priceLabel);
+
+  return {
+    claimStatus: normalizeImportedClaim(
+      getImportedValue(row, "claimStatus", "claim", "claims", "accident"),
+    ),
+    className: getImportedValue(row, "className", "class", "bodyStyle", "body", "vehicleClass"),
+    details: getImportedValue(row, "details", "description", "notes"),
+    drivetrain: normalizeImportedOption(
+      getImportedValue(row, "drivetrain", "driveTrain", "drive"),
+      drivetrainOptions,
+    ),
+    exteriorColor: getImportedValue(row, "exteriorColor", "color", "colour", "exteriorColour"),
+    fuel: normalizeImportedOption(getImportedValue(row, "fuel", "fuelType"), fuelOptions),
+    highlights: getImportedValue(row, "highlights", "highlight"),
+    make: getImportedValue(row, "make", "brand"),
+    mileageLabel: normalizeMileageLabel(getImportedValue(row, "mileageLabel", "mileage", "km")),
+    model: getImportedValue(row, "model"),
+    priceLabel: normalizedPrice,
+    status: normalizeImportedStatus(getImportedValue(row, "status"), normalizedPrice),
+    stockNumber: getImportedValue(row, "stockNumber", "stock", "stock #", "stockNo"),
+    transmission: normalizeImportedOption(
+      getImportedValue(row, "transmission", "trans"),
+      transmissionOptions,
+    ),
+    trim: getImportedValue(row, "trim"),
+    type: normalizeImportedType(getImportedValue(row, "type", "condition", "newUsed")),
+    vin: getImportedValue(row, "vin"),
+    year: Number(getImportedValue(row, "year")) || 0,
+  };
+}
+
+function getImportedValue(row: Record<string, unknown>, ...keys: string[]) {
+  const normalizedRow = new Map(
+    Object.entries(row).map(([key, value]) => [normalizeImportKey(key), value]),
+  );
+
+  for (const key of keys) {
+    const value = normalizedRow.get(normalizeImportKey(key));
+    const text = String(value ?? "").trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function normalizeImportKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeImportedType(value: string): VehicleType {
+  return /new/i.test(value) ? "new" : "used";
+}
+
+function normalizeImportedStatus(value: string, priceLabel: string): Vehicle["status"] {
+  if (/sold/i.test(value)) {
+    return "sold";
+  }
+
+  if (/available|active|in stock/i.test(value)) {
+    return "available";
+  }
+
+  if (/incoming|coming|call|ask|tbd/i.test(value)) {
+    return "incoming";
+  }
+
+  return hasListedPrice(priceLabel) ? "available" : "incoming";
+}
+
+function normalizeImportedClaim(value: string): ClaimStatus {
+  const text = value.toLowerCase();
+
+  if (/over|5k|\$5|major/.test(text)) {
+    return "claim-over-5k";
+  }
+
+  if (/minor/.test(text)) {
+    return "minor-claim";
+  }
+
+  if (/no claim|no accident|clean|none/.test(text)) {
+    return "no-claim";
+  }
+
+  return normalizeClaimStatus(value);
+}
+
+function normalizeImportedOption(value: string, options: string[]) {
+  const text = value.trim();
+
+  if (!text) {
+    return "";
+  }
+
+  const exactMatch = options.find((option) => option.toLowerCase() === text.toLowerCase());
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  if (/all wheel|awd/i.test(text)) {
+    return "AWD";
+  }
+
+  if (/four|4x4|4wd/i.test(text)) {
+    return "4x4";
+  }
+
+  if (/front|fwd/i.test(text)) {
+    return "FWD";
+  }
+
+  if (/rear|rwd/i.test(text)) {
+    return "RWD";
+  }
+
+  if (/automatic|auto|dct/i.test(text)) {
+    return "Auto";
+  }
+
+  if (/manual/i.test(text)) {
+    return "Manual";
+  }
+
+  if (/gas|petrol/i.test(text)) {
+    return "Gasoline";
+  }
+
+  if (/diesel/i.test(text)) {
+    return "Diesel";
+  }
+
+  if (/plug|phev/i.test(text)) {
+    return "PHEV";
+  }
+
+  if (/electric|ev/i.test(text)) {
+    return "EV";
+  }
+
+  if (/hybrid/i.test(text)) {
+    return "Hybrid";
+  }
+
+  return options.includes("Other") ? "Other" : text;
+}
+
+function normalizeMileageLabel(value: string) {
+  const raw = value.trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (/[a-z]/i.test(raw)) {
+    return raw;
+  }
+
+  const digits = raw.replace(/[^\d]/g, "");
+
+  return digits ? `${Number(digits).toLocaleString("en-CA")} km` : raw;
 }
 
 function getPublishSummary(

@@ -1753,6 +1753,58 @@ h3 {
   width: min(1100px, 100%);
 }
 
+.chatgpt-import-dialog {
+  width: min(1120px, 100%);
+}
+
+.chatgpt-import-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.chatgpt-import-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfbf8;
+  padding: 14px;
+}
+
+.chatgpt-import-panel strong,
+.chatgpt-import-panel p {
+  margin: 0;
+}
+
+.chatgpt-import-panel p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.chatgpt-import-panel textarea {
+  width: 100%;
+  min-height: 330px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.chatgpt-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .bulk-image-dialog .bulk-confirm-head p {
   margin: 4px 0 0;
   color: var(--muted);
@@ -4132,6 +4184,10 @@ h3 {
 
   .bulk-toolbar .button {
     width: 100%;
+  }
+
+  .chatgpt-import-grid {
+    grid-template-columns: 1fr;
   }
 
   .bulk-table-wrap {
