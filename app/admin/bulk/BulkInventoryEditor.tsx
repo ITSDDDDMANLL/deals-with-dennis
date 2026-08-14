@@ -1,7 +1,12 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
-import type { ClaimStatus, Vehicle, VehicleType } from "../../data/inventory";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ClaimStatus,
+  Vehicle,
+  VehiclePhoto,
+  VehicleType,
+} from "../../data/inventory";
 import { readErrorMessage } from "../../utils/read-error-message";
 
 type BulkVehicle = Vehicle & {
@@ -46,11 +51,73 @@ const fuelOptions = ["", "Diesel", "Gasoline", "Hybrid", "EV", "PHEV", "Other"];
 const maxScreenshotFiles = 8;
 const maxScreenshotSide = 1600;
 const screenshotQuality = 0.72;
+const maxVehicleImages = 40;
+const maxImagesPerBulkUpload = 20;
+const maxImageSizeBytes = 12_000_000;
 const claimStatusOptions: { label: string; value: ClaimStatus }[] = [
   { label: "Unknown", value: "unknown" },
   { label: "No claim", value: "no-claim" },
   { label: "Minor claim", value: "minor-claim" },
   { label: "Claim over $5k", value: "claim-over-5k" },
+];
+
+type BulkColumnKey =
+  | "featured"
+  | "type"
+  | "status"
+  | "year"
+  | "make"
+  | "model"
+  | "trim"
+  | "price"
+  | "mileage"
+  | "stock"
+  | "vin"
+  | "class"
+  | "color"
+  | "drivetrain"
+  | "transmission"
+  | "fuel"
+  | "claim"
+  | "highlights";
+
+const bulkColumnOptions: { key: BulkColumnKey; label: string }[] = [
+  { key: "featured", label: "Featured" },
+  { key: "type", label: "New / Used" },
+  { key: "status", label: "Status" },
+  { key: "year", label: "Year" },
+  { key: "make", label: "Make" },
+  { key: "model", label: "Model" },
+  { key: "trim", label: "Trim" },
+  { key: "price", label: "Price" },
+  { key: "mileage", label: "Mileage" },
+  { key: "stock", label: "Stock #" },
+  { key: "vin", label: "VIN" },
+  { key: "class", label: "Class" },
+  { key: "color", label: "Color" },
+  { key: "drivetrain", label: "Drivetrain" },
+  { key: "transmission", label: "Transmission" },
+  { key: "fuel", label: "Fuel" },
+  { key: "claim", label: "Claim" },
+  { key: "highlights", label: "Highlights" },
+];
+
+const defaultVisibleColumns: BulkColumnKey[] = [
+  "featured",
+  "type",
+  "status",
+  "year",
+  "make",
+  "model",
+  "trim",
+  "price",
+  "mileage",
+  "stock",
+  "class",
+  "color",
+  "drivetrain",
+  "fuel",
+  "claim",
 ];
 
 const blankVehicle: BulkVehicle = {
@@ -87,6 +154,7 @@ export function BulkInventoryEditor({
 }: {
   initialVehicles: Vehicle[];
 }) {
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [baselineVehicles, setBaselineVehicles] = useState<Vehicle[]>(initialVehicles);
   const [vehicles, setVehicles] = useState<BulkVehicle[]>(() =>
     initialVehicles.map((vehicle) => ({ ...vehicle, isDirty: false })),
@@ -96,9 +164,22 @@ export function BulkInventoryEditor({
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [selectedImageVehicleId, setSelectedImageVehicleId] = useState<string | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<Set<BulkColumnKey>>(
+    () => new Set(defaultVisibleColumns),
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+
+  const selectedImageVehicle = useMemo(
+    () => vehicles.find((vehicle) => vehicle.id === selectedImageVehicleId) ?? null,
+    [selectedImageVehicleId, vehicles],
+  );
+  const selectedImageVehiclePhotos = useMemo(
+    () => getVehiclePhotos(selectedImageVehicle),
+    [selectedImageVehicle],
+  );
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -178,6 +259,192 @@ export function BulkInventoryEditor({
     setHasUnsavedChanges(true);
     setVehicles((current) => current.filter((vehicle) => vehicle.id !== id));
     setNotice("Row removed. Publish to apply the deletion.");
+  }
+
+  function toggleColumn(key: BulkColumnKey) {
+    setVisibleColumns((current) => {
+      const next = new Set(current);
+
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+
+      return next;
+    });
+  }
+
+  function isColumnVisible(key: BulkColumnKey) {
+    return visibleColumns.has(key);
+  }
+
+  function showAllColumns() {
+    setVisibleColumns(new Set(bulkColumnOptions.map((column) => column.key)));
+  }
+
+  function showCoreColumns() {
+    setVisibleColumns(new Set(defaultVisibleColumns));
+  }
+
+  async function uploadBulkVehicleImages(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
+    if (!selectedImageVehicleId) {
+      setNotice("Choose a vehicle row before uploading images.");
+      return;
+    }
+
+    await uploadBulkVehicleImageFiles(selectedImageVehicleId, files);
+  }
+
+  async function uploadBulkVehicleImageFiles(id: string, files: File[]) {
+    if (!files.length) {
+      return;
+    }
+
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentPhotos = getVehiclePhotos(vehicle);
+    const openSlots = maxVehicleImages - currentPhotos.length;
+
+    if (openSlots <= 0) {
+      setNotice("This vehicle already has the 40 image maximum.");
+      return;
+    }
+
+    const acceptedFiles = files
+      .filter(isAllowedImageFile)
+      .slice(0, Math.min(openSlots, maxImagesPerBulkUpload));
+
+    if (!acceptedFiles.length) {
+      setNotice("Image upload failed: choose JPG, PNG, WebP, GIF, HEIC, or HEIF files.");
+      return;
+    }
+
+    const oversized = acceptedFiles.find((file) => file.size > maxImageSizeBytes);
+
+    if (oversized) {
+      setNotice(
+        `Image upload failed: ${oversized.name} is ${formatBytes(oversized.size)}. Maximum is ${formatBytes(maxImageSizeBytes)} per image.`,
+      );
+      return;
+    }
+
+    setNotice(`Preparing ${acceptedFiles.length} image${acceptedFiles.length === 1 ? "" : "s"}...`);
+
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/images", {
+        body: JSON.stringify({
+          files: acceptedFiles.map((file) => ({
+            contentType: file.type || getImageContentType(file.name),
+            fileName: file.name,
+            fileSize: file.size,
+          })),
+          vehicleId: id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    } catch (error) {
+      setNotice(`Image upload failed before reaching the server: ${getErrorMessage(error)}`);
+      return;
+    }
+
+    if (!response.ok) {
+      setNotice(await readErrorMessage(response, "Image upload failed."));
+      return;
+    }
+
+    const result = (await response.json()) as {
+      imageUrls?: string[];
+      mode?: string;
+      uploads?: {
+        imageUrl?: string;
+        signedUrl?: string;
+      }[];
+    };
+    const uploads = result.uploads ?? [];
+    const imageUrls: string[] = [...(result.imageUrls ?? [])];
+
+    for (let index = 0; index < uploads.length; index += 1) {
+      const upload = uploads[index];
+      const file = acceptedFiles[index];
+
+      if (!upload.signedUrl || !upload.imageUrl || !file) {
+        setNotice(`Image upload failed: missing upload URL for ${file?.name ?? "file"}.`);
+        return;
+      }
+
+      setNotice(`Uploading ${file.name} (${index + 1}/${uploads.length})...`);
+
+      const uploadForm = new FormData();
+      uploadForm.append("cacheControl", "3600");
+      uploadForm.append("", file);
+
+      const uploadResponse = await fetch(upload.signedUrl, {
+        body: uploadForm,
+        headers: { "x-upsert": "false" },
+        method: "PUT",
+      });
+
+      if (!uploadResponse.ok) {
+        setNotice(
+          await readErrorMessage(
+            uploadResponse,
+            `Image upload failed while sending ${file.name} to Supabase.`,
+          ),
+        );
+        return;
+      }
+
+      imageUrls.push(upload.imageUrl);
+    }
+
+    const nextPhotos = [
+      ...currentPhotos,
+      ...imageUrls.map((imageUrl) => createVehiclePhoto(imageUrl)),
+    ];
+
+    updateVehicle(id, {
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
+    });
+    setNotice(
+      `Added ${imageUrls.length} image${imageUrls.length === 1 ? "" : "s"}. Publish to Inventory to save the image order and cover.`,
+    );
+  }
+
+  function removeBulkVehicleImage(id: string, imageIndex: number) {
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentPhotos = getVehiclePhotos(vehicle);
+    const nextPhotos = currentPhotos.filter((_, index) => index !== imageIndex);
+
+    updateVehicle(id, {
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
+    });
+    setNotice("Image removed from this row. Publish to Inventory to save.");
+  }
+
+  function setBulkCoverImage(id: string, imageIndex: number) {
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentPhotos = [...getVehiclePhotos(vehicle)];
+    const [selected] = currentPhotos.splice(imageIndex, 1);
+
+    if (!selected) {
+      return;
+    }
+
+    const nextPhotos = [selected, ...currentPhotos];
+
+    updateVehicle(id, {
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
+    });
+    setNotice("Cover image updated. Publish to Inventory to save.");
   }
 
   async function reloadInventory() {
@@ -409,152 +676,225 @@ export function BulkInventoryEditor({
         </label>
       </div>
 
+      <div className="bulk-column-panel">
+        <div>
+          <p className="eyebrow">Visible columns</p>
+          <strong>{visibleColumns.size} shown</strong>
+        </div>
+        <div className="bulk-column-actions">
+          <button className="button secondary" onClick={showCoreColumns} type="button">
+            Core
+          </button>
+          <button className="button secondary" onClick={showAllColumns} type="button">
+            Show All
+          </button>
+        </div>
+        <div className="bulk-column-options">
+          {bulkColumnOptions.map((column) => (
+            <label key={column.key}>
+              <input
+                checked={visibleColumns.has(column.key)}
+                onChange={() => toggleColumn(column.key)}
+                type="checkbox"
+              />
+              <span>{column.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
       <div className="bulk-table-wrap">
         <table className="bulk-table">
           <thead>
             <tr>
-              <th>Featured</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Year</th>
-              <th>Make</th>
-              <th>Model</th>
-              <th>Trim</th>
-              <th>Price</th>
-              <th>Mileage</th>
-              <th>Stock #</th>
-              <th>VIN</th>
-              <th>Class</th>
-              <th>Color</th>
-              <th>Drivetrain</th>
-              <th>Trans.</th>
-              <th>Fuel</th>
-              <th>Claim</th>
-              <th>Highlights</th>
+              {isColumnVisible("featured") ? <th>Featured</th> : null}
+              {isColumnVisible("type") ? <th>Type</th> : null}
+              {isColumnVisible("status") ? <th>Status</th> : null}
+              {isColumnVisible("year") ? <th>Year</th> : null}
+              {isColumnVisible("make") ? <th>Make</th> : null}
+              {isColumnVisible("model") ? <th>Model</th> : null}
+              {isColumnVisible("trim") ? <th>Trim</th> : null}
+              {isColumnVisible("price") ? <th>Price</th> : null}
+              {isColumnVisible("mileage") ? <th>Mileage</th> : null}
+              {isColumnVisible("stock") ? <th>Stock #</th> : null}
+              {isColumnVisible("vin") ? <th>VIN</th> : null}
+              {isColumnVisible("class") ? <th>Class</th> : null}
+              {isColumnVisible("color") ? <th>Color</th> : null}
+              {isColumnVisible("drivetrain") ? <th>Drivetrain</th> : null}
+              {isColumnVisible("transmission") ? <th>Trans.</th> : null}
+              {isColumnVisible("fuel") ? <th>Fuel</th> : null}
+              {isColumnVisible("claim") ? <th>Claim</th> : null}
+              {isColumnVisible("highlights") ? <th>Highlights</th> : null}
+              <th>Images</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {filteredVehicles.map((vehicle) => (
               <tr key={vehicle.id} className={vehicle.isDirty ? "is-dirty" : ""}>
-                <td>
-                  <input
-                    checked={vehicle.isFeatured !== false}
-                    onChange={(event) =>
-                      updateVehicle(vehicle.id, { isFeatured: event.target.checked })
-                    }
-                    type="checkbox"
+                {isColumnVisible("featured") ? (
+                  <td>
+                    <input
+                      checked={vehicle.isFeatured !== false}
+                      onChange={(event) =>
+                        updateVehicle(vehicle.id, { isFeatured: event.target.checked })
+                      }
+                      type="checkbox"
+                    />
+                  </td>
+                ) : null}
+                {isColumnVisible("type") ? (
+                  <td>
+                    <select
+                      onChange={(event) =>
+                        updateVehicle(vehicle.id, {
+                          type: event.target.value as VehicleType,
+                        })
+                      }
+                      value={vehicle.type}
+                    >
+                      <option value="used">Used</option>
+                      <option value="new">New</option>
+                    </select>
+                  </td>
+                ) : null}
+                {isColumnVisible("status") ? (
+                  <td>
+                    <select
+                      onChange={(event) =>
+                        updateVehicle(vehicle.id, {
+                          status: event.target.value as Vehicle["status"],
+                        })
+                      }
+                      value={vehicle.status}
+                    >
+                      <option value="available">Available</option>
+                      <option value="incoming">Incoming</option>
+                      <option value="sold">Sold</option>
+                    </select>
+                  </td>
+                ) : null}
+                {isColumnVisible("year") ? (
+                  <EditableCell
+                    inputMode="numeric"
+                    onChange={(value) => updateVehicle(vehicle.id, { year: Number(value) || 0 })}
+                    value={String(vehicle.year || "")}
                   />
-                </td>
-                <td>
-                  <select
-                    onChange={(event) =>
-                      updateVehicle(vehicle.id, {
-                        type: event.target.value as VehicleType,
-                      })
+                ) : null}
+                {isColumnVisible("make") ? (
+                  <EditableCell onChange={(value) => updateVehicle(vehicle.id, { make: value })} value={vehicle.make} />
+                ) : null}
+                {isColumnVisible("model") ? (
+                  <EditableCell onChange={(value) => updateVehicle(vehicle.id, { model: value })} value={vehicle.model} />
+                ) : null}
+                {isColumnVisible("trim") ? (
+                  <EditableCell onChange={(value) => updateVehicle(vehicle.id, { trim: value })} value={vehicle.trim} />
+                ) : null}
+                {isColumnVisible("price") ? (
+                  <EditableCell
+                    inputMode="numeric"
+                    onBlur={(value) =>
+                      updateVehicle(vehicle.id, { priceLabel: normalizePriceLabel(value) })
                     }
-                    value={vehicle.type}
-                  >
-                    <option value="used">Used</option>
-                    <option value="new">New</option>
-                  </select>
-                </td>
+                    onChange={(value) => updateVehicle(vehicle.id, { priceLabel: value })}
+                    value={vehicle.priceLabel}
+                  />
+                ) : null}
+                {isColumnVisible("mileage") ? (
+                  <EditableCell
+                    onChange={(value) => updateVehicle(vehicle.id, { mileageLabel: value })}
+                    value={vehicle.mileageLabel}
+                  />
+                ) : null}
+                {isColumnVisible("stock") ? (
+                  <EditableCell
+                    onChange={(value) => updateVehicle(vehicle.id, { stockNumber: value })}
+                    value={vehicle.stockNumber ?? ""}
+                  />
+                ) : null}
+                {isColumnVisible("vin") ? (
+                  <EditableCell
+                    onChange={(value) => updateVehicle(vehicle.id, { vin: value })}
+                    value={vehicle.vin ?? ""}
+                  />
+                ) : null}
+                {isColumnVisible("class") ? (
+                  <td>
+                    <select
+                      onChange={(event) =>
+                        updateVehicle(vehicle.id, { className: event.target.value })
+                      }
+                      value={vehicle.className ?? ""}
+                    >
+                      {classNameOptions.map((option) => (
+                        <option key={option || "blank"} value={option}>
+                          {option || "Select"}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                ) : null}
+                {isColumnVisible("color") ? (
+                  <EditableCell
+                    onChange={(value) => updateVehicle(vehicle.id, { exteriorColor: value })}
+                    value={vehicle.exteriorColor}
+                  />
+                ) : null}
+                {isColumnVisible("drivetrain") ? (
+                  <SelectCell
+                    onChange={(value) => updateVehicle(vehicle.id, { drivetrain: value })}
+                    options={drivetrainOptions}
+                    value={vehicle.drivetrain ?? ""}
+                  />
+                ) : null}
+                {isColumnVisible("transmission") ? (
+                  <SelectCell
+                    onChange={(value) => updateVehicle(vehicle.id, { transmission: value })}
+                    options={transmissionOptions}
+                    value={vehicle.transmission ?? ""}
+                  />
+                ) : null}
+                {isColumnVisible("fuel") ? (
+                  <SelectCell
+                    onChange={(value) => updateVehicle(vehicle.id, { fuel: value })}
+                    options={fuelOptions}
+                    value={vehicle.fuel ?? ""}
+                  />
+                ) : null}
+                {isColumnVisible("claim") ? (
+                  <td>
+                    <select
+                      onChange={(event) =>
+                        updateVehicle(vehicle.id, {
+                          claimStatus: event.target.value as ClaimStatus,
+                        })
+                      }
+                      value={vehicle.claimStatus ?? "unknown"}
+                    >
+                      {claimStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                ) : null}
+                {isColumnVisible("highlights") ? (
+                  <EditableCell
+                    className="wide-cell"
+                    onChange={(value) => updateVehicle(vehicle.id, { highlights: value })}
+                    value={vehicle.highlights ?? ""}
+                  />
+                ) : null}
                 <td>
-                  <select
-                    onChange={(event) =>
-                      updateVehicle(vehicle.id, {
-                        status: event.target.value as Vehicle["status"],
-                      })
-                    }
-                    value={vehicle.status}
+                  <button
+                    className="bulk-image-button"
+                    onClick={() => setSelectedImageVehicleId(vehicle.id)}
+                    type="button"
                   >
-                    <option value="available">Available</option>
-                    <option value="incoming">Incoming</option>
-                    <option value="sold">Sold</option>
-                  </select>
+                    Images {getVehiclePhotos(vehicle).length}/{maxVehicleImages}
+                  </button>
                 </td>
-                <EditableCell
-                  inputMode="numeric"
-                  onChange={(value) => updateVehicle(vehicle.id, { year: Number(value) || 0 })}
-                  value={String(vehicle.year || "")}
-                />
-                <EditableCell onChange={(value) => updateVehicle(vehicle.id, { make: value })} value={vehicle.make} />
-                <EditableCell onChange={(value) => updateVehicle(vehicle.id, { model: value })} value={vehicle.model} />
-                <EditableCell onChange={(value) => updateVehicle(vehicle.id, { trim: value })} value={vehicle.trim} />
-                <EditableCell
-                  inputMode="numeric"
-                  onBlur={(value) =>
-                    updateVehicle(vehicle.id, { priceLabel: normalizePriceLabel(value) })
-                  }
-                  onChange={(value) => updateVehicle(vehicle.id, { priceLabel: value })}
-                  value={vehicle.priceLabel}
-                />
-                <EditableCell
-                  onChange={(value) => updateVehicle(vehicle.id, { mileageLabel: value })}
-                  value={vehicle.mileageLabel}
-                />
-                <EditableCell
-                  onChange={(value) => updateVehicle(vehicle.id, { stockNumber: value })}
-                  value={vehicle.stockNumber ?? ""}
-                />
-                <EditableCell
-                  onChange={(value) => updateVehicle(vehicle.id, { vin: value })}
-                  value={vehicle.vin ?? ""}
-                />
-                <td>
-                  <select
-                    onChange={(event) =>
-                      updateVehicle(vehicle.id, { className: event.target.value })
-                    }
-                    value={vehicle.className ?? ""}
-                  >
-                    {classNameOptions.map((option) => (
-                      <option key={option || "blank"} value={option}>
-                        {option || "Select"}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <EditableCell
-                  onChange={(value) => updateVehicle(vehicle.id, { exteriorColor: value })}
-                  value={vehicle.exteriorColor}
-                />
-                <SelectCell
-                  onChange={(value) => updateVehicle(vehicle.id, { drivetrain: value })}
-                  options={drivetrainOptions}
-                  value={vehicle.drivetrain ?? ""}
-                />
-                <SelectCell
-                  onChange={(value) => updateVehicle(vehicle.id, { transmission: value })}
-                  options={transmissionOptions}
-                  value={vehicle.transmission ?? ""}
-                />
-                <SelectCell
-                  onChange={(value) => updateVehicle(vehicle.id, { fuel: value })}
-                  options={fuelOptions}
-                  value={vehicle.fuel ?? ""}
-                />
-                <td>
-                  <select
-                    onChange={(event) =>
-                      updateVehicle(vehicle.id, {
-                        claimStatus: event.target.value as ClaimStatus,
-                      })
-                    }
-                    value={vehicle.claimStatus ?? "unknown"}
-                  >
-                    {claimStatusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <EditableCell
-                  className="wide-cell"
-                  onChange={(value) => updateVehicle(vehicle.id, { highlights: value })}
-                  value={vehicle.highlights ?? ""}
-                />
                 <td>
                   <button
                     className="bulk-remove-button"
@@ -569,6 +909,110 @@ export function BulkInventoryEditor({
           </tbody>
         </table>
       </div>
+
+      {selectedImageVehicle ? (
+        <div
+          aria-label="Manage row images"
+          aria-modal="true"
+          className="bulk-confirm-modal"
+          role="dialog"
+        >
+          <div
+            className="bulk-confirm-backdrop"
+            onClick={() => setSelectedImageVehicleId(null)}
+          />
+          <div className="bulk-confirm-dialog bulk-image-dialog">
+            <div className="bulk-confirm-head">
+              <div>
+                <p className="eyebrow">Images</p>
+                <h3>{getVehicleChangeLabel(selectedImageVehicle)}</h3>
+                <p>
+                  {selectedImageVehiclePhotos.length} / {maxVehicleImages} uploaded
+                </p>
+              </div>
+              <button
+                aria-label="Close image manager"
+                className="vehicle-modal-close"
+                onClick={() => setSelectedImageVehicleId(null)}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="bulk-image-toolbar">
+              <button
+                className="button secondary"
+                onClick={() => imageInputRef.current?.click()}
+                type="button"
+              >
+                Upload Images
+              </button>
+              <input
+                accept="image/*"
+                className="admin-file-input"
+                multiple
+                onChange={uploadBulkVehicleImages}
+                ref={imageInputRef}
+                type="file"
+              />
+            </div>
+
+            <div
+              className="image-drop-zone"
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "copy";
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                void uploadBulkVehicleImageFiles(
+                  selectedImageVehicle.id,
+                  Array.from(event.dataTransfer.files),
+                );
+              }}
+            >
+              <strong>Drop photos here</strong>
+              <span>JPG, PNG, WebP, HEIC up to 12 MB each. Up to 20 photos per upload.</span>
+            </div>
+
+            {selectedImageVehiclePhotos.length ? (
+              <div className="image-grid bulk-image-grid">
+                {selectedImageVehiclePhotos.map((photo, index) => (
+                  <div className="image-tile" key={`${photo.id ?? photo.originalUrl}-${index}`}>
+                    <img alt="" src={getPublicPhotoUrl(photo)} />
+                    <div className="image-drag-handle">
+                      <span>{index === 0 ? "Cover" : `Photo ${index + 1}`}</span>
+                      <small>{photoStatusLabel(photo)}</small>
+                    </div>
+                    {photo.watermarkError ? (
+                      <p className="image-error">{photo.watermarkError}</p>
+                    ) : null}
+                    <div className="image-actions">
+                      <button
+                        onClick={() => setBulkCoverImage(selectedImageVehicle.id, index)}
+                        type="button"
+                      >
+                        {index === 0 ? "Cover" : "Make Cover"}
+                      </button>
+                      <button
+                        onClick={() => removeBulkVehicleImage(selectedImageVehicle.id, index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="image-empty">
+                No images yet. Upload or drop photos here, then publish the bulk table.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {publishSummary ? (
         <div
@@ -982,4 +1426,95 @@ function formatBytes(value: number) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function getVehiclePhotos(vehicle: Partial<BulkVehicle> | undefined | null) {
+  const photos = Array.isArray(vehicle?.vehiclePhotos)
+    ? vehicle.vehiclePhotos
+        .map((photo, index) => normalizeVehiclePhoto(photo, index))
+        .filter((photo): photo is VehiclePhoto => Boolean(photo))
+    : [];
+
+  if (photos.length) {
+    return photos;
+  }
+
+  return (vehicle?.imageUrls ?? [])
+    .filter(Boolean)
+    .map((imageUrl) => createVehiclePhoto(imageUrl));
+}
+
+function createVehiclePhoto(originalUrl: string): VehiclePhoto {
+  return {
+    id: `photo-${Date.now()}-${hashText(originalUrl)}`,
+    originalUrl,
+    watermarkStatus: "idle",
+  };
+}
+
+function normalizeVehiclePhoto(photo: VehiclePhoto, index: number): VehiclePhoto | null {
+  const originalUrl = String(photo.originalUrl ?? "").trim();
+
+  if (!originalUrl) {
+    return null;
+  }
+
+  return {
+    id: String(photo.id ?? `photo-${index}-${hashText(originalUrl)}`),
+    originalUrl,
+    watermarkError: String(photo.watermarkError ?? "") || undefined,
+    watermarkedUrl: String(photo.watermarkedUrl ?? "") || undefined,
+    watermarkStatus: normalizeWatermarkStatus(photo.watermarkStatus),
+  };
+}
+
+function normalizeWatermarkStatus(
+  value: VehiclePhoto["watermarkStatus"],
+): VehiclePhoto["watermarkStatus"] {
+  if (value === "processing" || value === "done" || value === "failed") {
+    return value;
+  }
+
+  return "idle";
+}
+
+function getPublicPhotoUrl(photo: VehiclePhoto) {
+  return photo.watermarkedUrl || photo.originalUrl;
+}
+
+function photoStatusLabel(photo: VehiclePhoto) {
+  if (photo.watermarkStatus === "processing") return "Watermarking";
+  if (photo.watermarkStatus === "failed") return "Watermark failed";
+  if (photo.watermarkedUrl) return "Watermarked";
+
+  return "Original";
+}
+
+function hashText(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(36);
+}
+
+function getImageContentType(fileName: string) {
+  const lowerName = fileName.toLowerCase();
+
+  if (lowerName.endsWith(".png")) return "image/png";
+  if (lowerName.endsWith(".webp")) return "image/webp";
+  if (lowerName.endsWith(".gif")) return "image/gif";
+  if (lowerName.endsWith(".heic")) return "image/heic";
+  if (lowerName.endsWith(".heif")) return "image/heif";
+
+  return "image/jpeg";
+}
+
+function isAllowedImageFile(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    /\.(heic|heif|jpg|jpeg|png|webp|gif)$/i.test(file.name)
+  );
 }

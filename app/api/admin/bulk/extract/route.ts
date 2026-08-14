@@ -17,9 +17,9 @@ export async function POST(request: Request) {
   if (!apiKey) {
     return NextResponse.json(
       {
-        error: "Screenshot recognition is not configured yet.",
+        error: "Screenshot recognition needs OPENAI_API_KEY in Vercel.",
         details:
-          "Set OPENAI_API_KEY in Vercel to enable image-to-inventory extraction.",
+          "Add OPENAI_API_KEY under Vercel Project Settings > Environment Variables, then redeploy to enable image-to-inventory extraction.",
       },
       { status: 501 },
     );

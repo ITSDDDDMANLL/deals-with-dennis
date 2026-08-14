@@ -39,12 +39,8 @@ export default async function AdminBulkPage() {
             <section className="admin-hero">
               <div>
                 <p className="eyebrow">Fast inventory updates</p>
-                <h1>Bulk editor</h1>
+                <h1>Bulk Editor</h1>
               </div>
-              <p>
-                Edit pricing, status, mileage, and core vehicle details in a
-                spreadsheet-style view. Publish only after reviewing the table.
-              </p>
             </section>
 
             <BulkInventoryEditor initialVehicles={vehicles} />
