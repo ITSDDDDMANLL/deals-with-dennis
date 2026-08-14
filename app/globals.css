@@ -1648,6 +1648,118 @@ h3 {
   background: #ffe8df;
 }
 
+.bulk-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.bulk-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 31, 25, 0.58);
+}
+
+.bulk-confirm-dialog {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: 0 28px 90px rgba(5, 31, 25, 0.24);
+  padding: 22px;
+}
+
+.bulk-confirm-head,
+.bulk-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bulk-confirm-head h3 {
+  margin: 0;
+  font-size: clamp(30px, 5vw, 52px);
+}
+
+.bulk-confirm-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bulk-confirm-stats span {
+  border: 1px solid rgba(15, 95, 76, 0.16);
+  border-radius: 8px;
+  background: #eef6f2;
+  color: var(--forest);
+  padding: 12px;
+  font-weight: 950;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.bulk-confirm-list {
+  display: grid;
+  gap: 16px;
+}
+
+.bulk-confirm-list section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.bulk-confirm-list h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.bulk-confirm-list ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bulk-confirm-list li {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfbf8;
+  padding: 10px 12px;
+}
+
+.bulk-confirm-list li span,
+.bulk-confirm-more {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.bulk-confirm-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 4px;
+}
+
 .history-shell {
   display: grid;
   gap: 18px;

@@ -8,6 +8,19 @@ type BulkVehicle = Vehicle & {
   isDirty?: boolean;
 };
 
+type PublishChange = {
+  fields?: string[];
+  label: string;
+  type: "added" | "changed" | "removed";
+};
+
+type PublishSummary = {
+  added: PublishChange[];
+  changed: PublishChange[];
+  removed: PublishChange[];
+  total: number;
+};
+
 const classNameOptions = [
   "",
   "SUV",
@@ -74,10 +87,12 @@ export function BulkInventoryEditor({
 }: {
   initialVehicles: Vehicle[];
 }) {
+  const [baselineVehicles, setBaselineVehicles] = useState<Vehicle[]>(initialVehicles);
   const [vehicles, setVehicles] = useState<BulkVehicle[]>(() =>
     initialVehicles.map((vehicle) => ({ ...vehicle, isDirty: false })),
   );
   const [notice, setNotice] = useState("");
+  const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -184,21 +199,27 @@ export function BulkInventoryEditor({
     }
 
     const data = (await response.json()) as { vehicles?: Vehicle[] };
-    setVehicles((data.vehicles ?? []).map((vehicle) => ({ ...vehicle, isDirty: false })));
+    const nextVehicles = data.vehicles ?? [];
+    setBaselineVehicles(nextVehicles);
+    setVehicles(nextVehicles.map((vehicle) => ({ ...vehicle, isDirty: false })));
     setHasUnsavedChanges(false);
     setNotice("Reloaded current inventory from Supabase.");
   }
 
-  async function publishInventory() {
-    const confirmed = window.confirm(
-      "Publish this full table to Supabase? Rows removed from this table will be removed from active inventory.",
-    );
+  function requestPublishConfirmation() {
+    const summary = getPublishSummary(baselineVehicles, vehicles);
 
-    if (!confirmed) {
+    if (!summary.total) {
+      setNotice("No inventory changes to publish.");
       return;
     }
 
+    setPublishSummary(summary);
+  }
+
+  async function publishInventory() {
     setSaving(true);
+    setPublishSummary(null);
     const vehiclesToSave = vehicles.map((vehicle) =>
       stripBulkFields(normalizeBulkVehicle(vehicle)),
     );
@@ -231,7 +252,8 @@ export function BulkInventoryEditor({
       return;
     }
 
-    setVehicles((current) => current.map((vehicle) => ({ ...vehicle, isDirty: false })));
+    setBaselineVehicles(vehiclesToSave);
+    setVehicles(vehiclesToSave.map((vehicle) => ({ ...vehicle, isDirty: false })));
     setHasUnsavedChanges(false);
     setSaving(false);
     setNotice(`Published ${result.count ?? vehiclesToSave.length} vehicles to Supabase.`);
@@ -345,7 +367,7 @@ export function BulkInventoryEditor({
           <button
             className="button primary"
             disabled={saving}
-            onClick={publishInventory}
+            onClick={requestPublishConfirmation}
             type="button"
           >
             {saving ? "Publishing..." : "Publish to Inventory"}
@@ -547,6 +569,89 @@ export function BulkInventoryEditor({
           </tbody>
         </table>
       </div>
+
+      {publishSummary ? (
+        <div
+          aria-modal="true"
+          className="bulk-confirm-modal"
+          role="dialog"
+          aria-label="Confirm inventory publish"
+        >
+          <div className="bulk-confirm-backdrop" onClick={() => setPublishSummary(null)} />
+          <div className="bulk-confirm-dialog">
+            <div className="bulk-confirm-head">
+              <div>
+                <p className="eyebrow">Review changes</p>
+                <h3>Confirm publish</h3>
+              </div>
+              <button
+                aria-label="Close publish confirmation"
+                className="vehicle-modal-close"
+                onClick={() => setPublishSummary(null)}
+                type="button"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="bulk-confirm-stats">
+              <span>{publishSummary.added.length} added</span>
+              <span>{publishSummary.changed.length} changed</span>
+              <span>{publishSummary.removed.length} removed</span>
+            </div>
+
+            <div className="bulk-confirm-list">
+              {renderChangeGroup("Added", publishSummary.added)}
+              {renderChangeGroup("Changed", publishSummary.changed)}
+              {renderChangeGroup("Removed", publishSummary.removed)}
+            </div>
+
+            <div className="bulk-confirm-actions">
+              <button
+                className="button secondary"
+                disabled={saving}
+                onClick={() => setPublishSummary(null)}
+                type="button"
+              >
+                Keep Editing
+              </button>
+              <button
+                className="button primary"
+                disabled={saving}
+                onClick={publishInventory}
+                type="button"
+              >
+                {saving ? "Publishing..." : "Confirm Publish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function renderChangeGroup(label: string, changes: PublishChange[]) {
+  if (!changes.length) {
+    return null;
+  }
+
+  return (
+    <section>
+      <h4>
+        {label} <span>{changes.length}</span>
+      </h4>
+      <ul>
+        {changes.slice(0, 12).map((change) => (
+          <li key={`${change.type}-${change.label}-${change.fields?.join(",") ?? ""}`}>
+            <strong>{change.label}</strong>
+            {change.fields?.length ? <span>{change.fields.join(", ")}</span> : null}
+          </li>
+        ))}
+      </ul>
+      {changes.length > 12 ? (
+        <p className="bulk-confirm-more">+ {changes.length - 12} more</p>
+      ) : null}
     </section>
   );
 }
@@ -644,6 +749,122 @@ function stripBulkFields(vehicle: BulkVehicle): Vehicle {
     vin: vehicle.vin,
     year: vehicle.year,
   };
+}
+
+function getPublishSummary(
+  baselineVehicles: Vehicle[],
+  currentVehicles: BulkVehicle[],
+): PublishSummary {
+  const baselineByKey = new Map(
+    baselineVehicles.map((vehicle) => [getVehicleChangeKey(vehicle), vehicle]),
+  );
+  const currentByKey = new Map(
+    currentVehicles.map((vehicle) => [getVehicleChangeKey(vehicle), vehicle]),
+  );
+  const added: PublishChange[] = [];
+  const changed: PublishChange[] = [];
+  const removed: PublishChange[] = [];
+
+  for (const currentVehicle of currentVehicles) {
+    const key = getVehicleChangeKey(currentVehicle);
+    const baselineVehicle = baselineByKey.get(key);
+
+    if (!baselineVehicle) {
+      added.push({
+        label: getVehicleChangeLabel(currentVehicle),
+        type: "added",
+      });
+      continue;
+    }
+
+    const fields = getChangedFields(baselineVehicle, currentVehicle);
+
+    if (fields.length) {
+      changed.push({
+        fields,
+        label: getVehicleChangeLabel(currentVehicle),
+        type: "changed",
+      });
+    }
+  }
+
+  for (const baselineVehicle of baselineVehicles) {
+    const key = getVehicleChangeKey(baselineVehicle);
+
+    if (!currentByKey.has(key)) {
+      removed.push({
+        label: getVehicleChangeLabel(baselineVehicle),
+        type: "removed",
+      });
+    }
+  }
+
+  return {
+    added,
+    changed,
+    removed,
+    total: added.length + changed.length + removed.length,
+  };
+}
+
+const bulkCompareFields: {
+  key: keyof Vehicle;
+  label: string;
+}[] = [
+  { key: "type", label: "New / Used" },
+  { key: "status", label: "Status" },
+  { key: "year", label: "Year" },
+  { key: "make", label: "Make" },
+  { key: "model", label: "Model" },
+  { key: "trim", label: "Trim" },
+  { key: "priceLabel", label: "Price" },
+  { key: "mileageLabel", label: "Mileage" },
+  { key: "stockNumber", label: "Stock #" },
+  { key: "vin", label: "VIN" },
+  { key: "className", label: "Class" },
+  { key: "exteriorColor", label: "Color" },
+  { key: "drivetrain", label: "Drivetrain" },
+  { key: "transmission", label: "Transmission" },
+  { key: "fuel", label: "Fuel" },
+  { key: "claimStatus", label: "Claim" },
+  { key: "isFeatured", label: "Featured" },
+  { key: "highlights", label: "Highlights" },
+];
+
+function getChangedFields(before: Vehicle, after: Vehicle) {
+  return bulkCompareFields
+    .filter(({ key }) => normalizeCompareValue(before[key]) !== normalizeCompareValue(after[key]))
+    .map(({ label }) => label);
+}
+
+function normalizeCompareValue(value: unknown) {
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return String(value ?? "").trim();
+}
+
+function getVehicleChangeKey(vehicle: Pick<Vehicle, "id" | "stockNumber" | "vin">) {
+  return (
+    String(vehicle.stockNumber ?? "").trim().toLowerCase() ||
+    String(vehicle.vin ?? "").trim().toLowerCase() ||
+    vehicle.id
+  );
+}
+
+function getVehicleChangeLabel(vehicle: Pick<Vehicle, "make" | "model" | "stockNumber" | "trim" | "year">) {
+  const title = [vehicle.year || "", vehicle.make, vehicle.model]
+    .filter(Boolean)
+    .join(" ");
+  const trim = vehicle.trim ? ` ${vehicle.trim}` : "";
+  const stock = vehicle.stockNumber ? ` - Stock ${vehicle.stockNumber}` : "";
+
+  return `${title || "Untitled vehicle"}${trim}${stock}`;
 }
 
 function normalizeClaimStatus(value: unknown): ClaimStatus {
