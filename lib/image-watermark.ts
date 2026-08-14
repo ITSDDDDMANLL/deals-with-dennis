@@ -17,8 +17,10 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-jpg-watermark-assets-v6";
+const watermarkRenderVersion = "2026-08-14-standard-4x3-watermark-v7";
 const watermarkAssetAspectRatio = 2400 / 260;
+const watermarkedOutputWidth = 1600;
+const watermarkedOutputHeight = 1200;
 const watermarkAssetPaths = {
   bottom: path.join(process.cwd(), "public", "watermarks", "bottom.jpg"),
   top: path.join(process.cwd(), "public", "watermarks", "top.jpg"),
@@ -108,22 +110,39 @@ async function applyDealsWithDennisWatermark(
     website: string;
   },
 ) {
-  const base = sharp(input, { failOn: "none" }).rotate();
-  const metadata = await base.metadata();
-  const width = metadata.width ?? 1600;
-  const height = metadata.height ?? 1200;
-  const barHeight = clamp(Math.round(width / watermarkAssetAspectRatio), 78, 260);
-  const topOverlay = await createWatermarkAssetOverlay(watermarkAssetPaths.top, width, barHeight);
-  const bottomOverlay = await createWatermarkAssetOverlay(
-    watermarkAssetPaths.bottom,
-    width,
+  const barHeight = Math.round(watermarkedOutputWidth / watermarkAssetAspectRatio);
+  const photoHeight = watermarkedOutputHeight - barHeight * 2;
+  const topOverlay = await createWatermarkAssetOverlay(
+    watermarkAssetPaths.top,
+    watermarkedOutputWidth,
     barHeight,
   );
+  const bottomOverlay = await createWatermarkAssetOverlay(
+    watermarkAssetPaths.bottom,
+    watermarkedOutputWidth,
+    barHeight,
+  );
+  const normalizedPhoto = await sharp(input, { failOn: "none" })
+    .rotate()
+    .resize(watermarkedOutputWidth, photoHeight, {
+      fit: "cover",
+      position: "centre",
+    })
+    .jpeg({ mozjpeg: true, quality: 90 })
+    .toBuffer();
 
-  return base
+  return sharp({
+    create: {
+      background: { b: 67, g: 83, r: 18 },
+      channels: 3,
+      height: watermarkedOutputHeight,
+      width: watermarkedOutputWidth,
+    },
+  })
     .composite([
       { input: topOverlay, left: 0, top: 0 },
-      { input: bottomOverlay, left: 0, top: Math.max(0, height - barHeight) },
+      { input: normalizedPhoto, left: 0, top: barHeight },
+      { input: bottomOverlay, left: 0, top: watermarkedOutputHeight - barHeight },
     ])
     .jpeg({ mozjpeg: true, quality: 88 })
     .toBuffer();
