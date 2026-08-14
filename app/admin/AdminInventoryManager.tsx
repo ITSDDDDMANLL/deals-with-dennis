@@ -82,6 +82,7 @@ export function AdminInventoryManager({
   const [selectedId, setSelectedId] = useState(initialVehicles[0]?.id ?? "");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [watermarking, setWatermarking] = useState(false);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState("all");
   const [adminStatusFilter, setAdminStatusFilter] = useState("all");
@@ -300,21 +301,24 @@ export function AdminInventoryManager({
       imageUrls.push(upload.imageUrl);
     }
 
+    const nextPhotos = [
+      ...currentPhotos,
+      ...imageUrls.map((imageUrl) => createVehiclePhoto(imageUrl)),
+    ];
+
     updateVehicle(id, {
       imageUrls: [
         ...currentPhotos.map(getPublicPhotoUrl),
         ...imageUrls,
       ],
-      vehiclePhotos: [
-        ...currentPhotos,
-        ...imageUrls.map((imageUrl) => createVehiclePhoto(imageUrl)),
-      ],
+      vehiclePhotos: nextPhotos,
     });
     setNotice(
       `Added ${imageUrls.length} image${imageUrls.length === 1 ? "" : "s"}${
         result.mode === "supabase" ? " to Supabase Storage" : ""
-      }.`,
+      }. Applying watermark now...`,
     );
+    await processVehicleWatermarks(id, nextPhotos, "auto");
   }
 
   function removeVehicleImage(id: string, imageIndex: number) {
@@ -384,8 +388,60 @@ export function AdminInventoryManager({
       return;
     }
 
+    await processVehicleWatermarks(id, currentPhotos, "manual");
+  }
+
+  async function applyWatermarkToAllVehicles() {
+    const vehiclesWithPhotos = vehicles.filter(
+      (vehicle) => getVehiclePhotos(vehicle).length,
+    );
+
+    if (!vehiclesWithPhotos.length) {
+      setNotice("No vehicle photos found to watermark.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Apply or regenerate watermarks for ${vehiclesWithPhotos.length} vehicle${vehiclesWithPhotos.length === 1 ? "" : "s"}? This uses each original photo and keeps originals untouched.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setWatermarking(true);
+    let totalSucceeded = 0;
+    let totalFailed = 0;
+
+    for (let index = 0; index < vehiclesWithPhotos.length; index += 1) {
+      const vehicle = vehiclesWithPhotos[index];
+      const result = await processVehicleWatermarks(
+        vehicle.id,
+        getVehiclePhotos(vehicle),
+        "bulk",
+        `Watermarking ${index + 1}/${vehiclesWithPhotos.length}: ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      );
+
+      totalSucceeded += result.succeeded;
+      totalFailed += result.failed;
+    }
+
+    setWatermarking(false);
+    setPhotoPreviewMode("watermarked");
     setNotice(
-      `Applying watermark to ${currentPhotos.length} photo${currentPhotos.length === 1 ? "" : "s"}...`,
+      `Watermark all complete: ${totalSucceeded} photo${totalSucceeded === 1 ? "" : "s"} succeeded, ${totalFailed} failed. Click Save Vehicles to publish.`,
+    );
+  }
+
+  async function processVehicleWatermarks(
+    id: string,
+    currentPhotos: VehiclePhoto[],
+    mode: "auto" | "bulk" | "manual",
+    progressMessage?: string,
+  ) {
+    setNotice(
+      progressMessage ??
+        `Applying watermark to ${currentPhotos.length} photo${currentPhotos.length === 1 ? "" : "s"}...`,
     );
     updateVehicle(id, {
       vehiclePhotos: currentPhotos.map((photo) => ({
@@ -414,13 +470,13 @@ export function AdminInventoryManager({
         `Watermark failed before reaching the server: ${getErrorMessage(error)}`,
       );
       updateVehicle(id, { vehiclePhotos: currentPhotos });
-      return;
+      return { failed: currentPhotos.length, succeeded: 0 };
     }
 
     if (!response.ok) {
       setNotice(await readErrorMessage(response, "Watermark processing failed."));
       updateVehicle(id, { vehiclePhotos: currentPhotos });
-      return;
+      return { failed: currentPhotos.length, succeeded: 0 };
     }
 
     const result = (await response.json()) as {
@@ -471,9 +527,17 @@ export function AdminInventoryManager({
       vehiclePhotos: nextPhotos,
     });
     setPhotoPreviewMode("watermarked");
-    setNotice(
-      `Watermark complete: ${result.succeeded ?? 0} succeeded, ${result.failed ?? 0} failed. Click Save Vehicles to publish.`,
-    );
+
+    if (mode !== "bulk") {
+      setNotice(
+        `${mode === "auto" ? "Upload and watermark complete" : "Watermark complete"}: ${result.succeeded ?? 0} succeeded, ${result.failed ?? 0} failed. Click Save Vehicles to publish.`,
+      );
+    }
+
+    return {
+      failed: result.failed ?? 0,
+      succeeded: result.succeeded ?? 0,
+    };
   }
 
   async function loadInventory() {
@@ -699,6 +763,14 @@ export function AdminInventoryManager({
           </button>
           <button className="button secondary" onClick={addVehicle} type="button">
             Add Vehicle
+          </button>
+          <button
+            className="button secondary"
+            disabled={watermarking}
+            onClick={applyWatermarkToAllVehicles}
+            type="button"
+          >
+            {watermarking ? "Watermarking..." : "Watermark All Vehicles"}
           </button>
           <button className="button secondary" onClick={logout} type="button">
             Sign Out
@@ -929,7 +1001,7 @@ export function AdminInventoryManager({
                     </button>
                     <button
                       className="button primary"
-                      disabled={!selectedVehiclePhotos.length}
+                      disabled={!selectedVehiclePhotos.length || watermarking}
                       onClick={() => applyWatermarkToVehicleImages(selectedVehicle.id)}
                       type="button"
                     >
