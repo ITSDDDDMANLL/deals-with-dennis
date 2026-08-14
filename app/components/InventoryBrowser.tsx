@@ -79,7 +79,7 @@ export function InventoryBrowser({
   const filterOptions = useMemo(
     () => ({
       bodyStyle: uniqueValues(vehicles.map((vehicle) => vehicle.className)),
-      colour: uniqueValues(vehicles.map((vehicle) => vehicle.exteriorColor)),
+      colour: uniqueColourValues(vehicles.map((vehicle) => vehicle.exteriorColor)),
       drivetrain: uniqueValues(vehicles.map((vehicle) => vehicle.drivetrain)),
       fuel: uniqueValues(vehicles.map(inferFuel)),
       make: uniqueValues(vehicles.map((vehicle) => vehicle.make)),
@@ -106,7 +106,7 @@ export function InventoryBrowser({
         matchesSelect(selectFilters.make, vehicle.make) &&
         matchesSelect(selectFilters.model, vehicle.model) &&
         matchesSelect(selectFilters.bodyStyle, vehicle.className) &&
-        matchesSelect(selectFilters.colour, vehicle.exteriorColor) &&
+        matchesSelect(selectFilters.colour, normalizeColourLabel(vehicle.exteriorColor)) &&
         matchesSelect(selectFilters.drivetrain, vehicle.drivetrain) &&
         matchesSelect(selectFilters.fuel, inferFuel(vehicle)) &&
         matchesSelect(selectFilters.transmission, inferTransmission(vehicle));
@@ -895,6 +895,112 @@ function numberFromLabel(value: string) {
 function uniqueValues(values: Array<string | number | null | undefined>) {
   return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function uniqueColourValues(values: Array<string | number | null | undefined>) {
+  const colourOrder = [
+    "Black",
+    "White",
+    "Gray",
+    "Silver",
+    "Blue",
+    "Red",
+    "Green",
+    "Bronze",
+    "Brown",
+    "Gold",
+    "Orange",
+    "Yellow",
+    "Purple",
+    "Beige",
+    "Other",
+  ];
+  const colours = [
+    ...new Set(
+      values
+        .map((value) => normalizeColourLabel(String(value ?? "")))
+        .filter(Boolean),
+    ),
+  ];
+
+  return colours.sort((a, b) => {
+    const aIndex = colourOrder.indexOf(a);
+    const bIndex = colourOrder.indexOf(b);
+
+    if (aIndex >= 0 || bIndex >= 0) {
+      return (aIndex >= 0 ? aIndex : colourOrder.length) -
+        (bIndex >= 0 ? bIndex : colourOrder.length);
+    }
+
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+}
+
+function normalizeColourLabel(value: string) {
+  const text = value.trim();
+  const normalized = text.toLowerCase();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.includes("black")) {
+    return "Black";
+  }
+
+  if (normalized.includes("white") || normalized.includes("pearl")) {
+    return "White";
+  }
+
+  if (normalized.includes("grey") || normalized.includes("gray") || normalized.includes("carbonized")) {
+    return "Gray";
+  }
+
+  if (normalized.includes("silver") || normalized.includes("ingot")) {
+    return "Silver";
+  }
+
+  if (normalized.includes("blue")) {
+    return "Blue";
+  }
+
+  if (normalized.includes("red") || normalized.includes("ruby")) {
+    return "Red";
+  }
+
+  if (normalized.includes("green")) {
+    return "Green";
+  }
+
+  if (normalized.includes("bronze") || normalized.includes("copper")) {
+    return "Bronze";
+  }
+
+  if (normalized.includes("brown")) {
+    return "Brown";
+  }
+
+  if (normalized.includes("gold")) {
+    return "Gold";
+  }
+
+  if (normalized.includes("orange")) {
+    return "Orange";
+  }
+
+  if (normalized.includes("yellow")) {
+    return "Yellow";
+  }
+
+  if (normalized.includes("purple")) {
+    return "Purple";
+  }
+
+  if (normalized.includes("beige") || normalized.includes("sand")) {
+    return "Beige";
+  }
+
+  return "Other";
 }
 
 function uniqueYearValues(values: Array<number | null | undefined>) {

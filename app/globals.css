@@ -460,15 +460,23 @@ h3 {
   min-height: 44px;
   border: 1px solid rgba(15, 95, 76, 0.18);
   border-radius: 6px;
-  background: #e3f2eb;
+  background: #eaf5f0;
   color: var(--ink);
   padding: 0 13px;
   font-weight: 850;
+  color-scheme: light;
 }
 
 .filter-control select,
 .sort-control select {
   cursor: pointer;
+}
+
+.filter-control select option,
+.sort-control select option {
+  background: #f7fbf8;
+  color: var(--ink);
+  font-weight: 800;
 }
 
 .filter-search {
