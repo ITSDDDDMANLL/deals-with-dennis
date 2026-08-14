@@ -6,6 +6,7 @@ const ADMIN_WIDE_KEY = "deals-with-dennis-admin-wide";
 
 const adminLinks = [
   { href: "/admin", label: "Inventory" },
+  { href: "/admin/bulk", label: "Bulk Editor" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/content", label: "Content" },
   { href: "/admin/inquiries", label: "Inquiries" },
