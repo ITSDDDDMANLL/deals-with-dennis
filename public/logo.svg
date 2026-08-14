@@ -1,8 +1,10 @@
-<svg width="320" height="96" viewBox="0 0 320 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="2" y="2" width="92" height="92" rx="22" fill="#06110F" stroke="#0F6A54" stroke-width="4"/>
-  <path d="M16 70H80" stroke="#0F6A54" stroke-width="6" stroke-linecap="round"/>
-  <path d="M16 26H80" stroke="#0F6A54" stroke-width="6" stroke-linecap="round"/>
-  <text x="48" y="57" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="900" text-anchor="middle" letter-spacing="1.6">DWD</text>
-  <text x="112" y="42" fill="#06110F" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="900" letter-spacing="0.8">Deals with</text>
-  <text x="112" y="72" fill="#0F6A54" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" letter-spacing="0.6">Dennis</text>
+<svg width="420" height="120" viewBox="0 0 420 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="420" height="120" rx="24" fill="#F5F8F6"/>
+  <rect x="22" y="22" width="76" height="76" rx="20" fill="#06110F"/>
+  <rect x="28" y="28" width="64" height="64" rx="16" stroke="#0F6A54" stroke-width="3"/>
+  <path d="M39 42H60C72.8 42 81 49.4 81 60C81 70.6 72.8 78 60 78H39V42Z" fill="#FFFFFF"/>
+  <path d="M49 52V68H60C66.4 68 70.6 64.8 70.6 60C70.6 55.2 66.4 52 60 52H49Z" fill="#06110F"/>
+  <path d="M83 42H91L78 78H70L83 42Z" fill="#0F6A54"/>
+  <text x="122" y="55" fill="#06110F" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="900" letter-spacing="-0.2">Deals with Dennis</text>
+  <text x="124" y="82" fill="#0F5F4C" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="900" letter-spacing="2.6">FRESH CAR FINDS</text>
 </svg>

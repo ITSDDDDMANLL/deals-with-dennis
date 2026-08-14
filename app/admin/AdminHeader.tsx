@@ -4,15 +4,31 @@ import { useEffect, useState } from "react";
 
 const ADMIN_WIDE_KEY = "deals-with-dennis-admin-wide";
 
-const adminLinks = [
-  { href: "/admin", label: "Inventory" },
-  { href: "/admin/bulk", label: "Bulk Editor" },
-  { href: "/admin/analytics", label: "Analytics" },
-  { href: "/admin/content", label: "Content" },
-  { href: "/admin/inquiries", label: "Inquiries" },
-  { href: "/admin/appointments", label: "Appointments" },
-  { href: "/admin/history", label: "History" },
-  { href: "/", label: "Public Site" },
+const adminGroups = [
+  {
+    label: "Inventory",
+    links: [
+      { href: "/admin", label: "Inventory Management" },
+      { href: "/admin/bulk", label: "Bulk Editor" },
+      { href: "/admin/history", label: "History" },
+    ],
+  },
+  {
+    label: "Leads",
+    links: [
+      { href: "/admin/inquiries", label: "Inquiries" },
+      { href: "/admin/appointments", label: "Appointments" },
+      { href: "/admin/analytics", label: "Analytics" },
+    ],
+  },
+  {
+    label: "Website",
+    links: [
+      { href: "/admin/content", label: "Content" },
+      { href: "/", label: "Public Site" },
+      { href: "/inventory", label: "View Inventory" },
+    ],
+  },
 ];
 
 export function AdminHeader({ section }: { section: string }) {
@@ -45,12 +61,23 @@ export function AdminHeader({ section }: { section: string }) {
             Deals with Dennis <span>{section}</span>
           </span>
         </a>
-        <div className="nav-links admin-nav-links">
-          {adminLinks.map((link) => (
-            <a href={link.href} key={link.href}>
-              {link.label}
-            </a>
+        <div className="admin-nav-menu">
+          {adminGroups.map((group) => (
+            <div className="admin-nav-group" key={group.label}>
+              <button className="admin-nav-trigger" type="button">
+                {group.label}
+              </button>
+              <div className="admin-nav-dropdown">
+                {group.links.map((link) => (
+                  <a href={link.href} key={link.href}>
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </div>
           ))}
+        </div>
+        <div className="admin-nav-actions">
           <button
             aria-pressed={isWide}
             className="nav-mode-toggle"
@@ -59,7 +86,7 @@ export function AdminHeader({ section }: { section: string }) {
           >
             {isWide ? "Comfort Width" : "Full Width"}
           </button>
-          <a className="nav-cta" href="/inventory">
+          <a className="nav-cta admin-primary-cta" href="/inventory">
             View Inventory
           </a>
         </div>

@@ -17,10 +17,12 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-standard-4x3-watermark-v7";
+const watermarkRenderVersion = "2026-08-14-standard-4x3-watermark-v8";
 const watermarkAssetAspectRatio = 2400 / 260;
 const watermarkedOutputWidth = 1600;
 const watermarkedOutputHeight = 1200;
+const topWatermarkOpacity = 0.6;
+const bottomWatermarkOpacity = 0.88;
 const watermarkAssetPaths = {
   bottom: path.join(process.cwd(), "public", "watermarks", "bottom.jpg"),
   top: path.join(process.cwd(), "public", "watermarks", "top.jpg"),
@@ -116,11 +118,13 @@ async function applyDealsWithDennisWatermark(
     watermarkAssetPaths.top,
     watermarkedOutputWidth,
     barHeight,
+    topWatermarkOpacity,
   );
   const bottomOverlay = await createWatermarkAssetOverlay(
     watermarkAssetPaths.bottom,
     watermarkedOutputWidth,
     barHeight,
+    bottomWatermarkOpacity,
   );
   const normalizedPhoto = await sharp(input, { failOn: "none" })
     .rotate()
@@ -148,7 +152,12 @@ async function applyDealsWithDennisWatermark(
     .toBuffer();
 }
 
-async function createWatermarkAssetOverlay(assetPath: string, width: number, height: number) {
+async function createWatermarkAssetOverlay(
+  assetPath: string,
+  width: number,
+  height: number,
+  opacity: number,
+) {
   const asset = await readFile(assetPath);
 
   return sharp(asset, { failOn: "none" })
@@ -157,7 +166,8 @@ async function createWatermarkAssetOverlay(assetPath: string, width: number, hei
       fit: "contain",
       withoutEnlargement: false,
     })
-    .jpeg({ mozjpeg: true, quality: 92 })
+    .ensureAlpha(opacity)
+    .png()
     .toBuffer();
 }
 
