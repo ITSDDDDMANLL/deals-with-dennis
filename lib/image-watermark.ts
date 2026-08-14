@@ -14,6 +14,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 };
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
+const defaultWatermarkPhone = "236-878-4987";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -40,7 +41,7 @@ export async function watermarkVehiclePhotos({
       const watermarked = await applyDealsWithDennisWatermark(source, {
         dealerName: siteContent.dealerName,
         name: siteContent.profileName || "Dennis Liu",
-        phone: process.env.WATERMARK_PHONE ?? "",
+        phone: process.env.WATERMARK_PHONE ?? defaultWatermarkPhone,
         website:
           process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ??
           "dealswithdennis.com",
@@ -96,87 +97,146 @@ async function applyDealsWithDennisWatermark(
   const width = metadata.width ?? 1600;
   const height = metadata.height ?? 1200;
   const shortestSide = Math.max(1, Math.min(width, height));
-  const fontSize = clamp(Math.round(shortestSide * 0.028), 18, 42);
-  const smallFontSize = clamp(Math.round(fontSize * 0.72), 14, 30);
-  const horizontalPadding = Math.round(fontSize * 0.9);
-  const verticalPadding = Math.round(fontSize * 0.65);
-  const margin = clamp(Math.round(shortestSide * 0.035), 18, 52);
-  const lineGap = Math.round(fontSize * 0.35);
-  const textLineOne = `${branding.name} | ${branding.dealerName}`;
-  const textLineTwo = [branding.phone, branding.website].filter(Boolean).join(" | ");
-  const textWidth = Math.max(
-    measureBitmapText(textLineOne, fontSize),
-    measureBitmapText(textLineTwo, smallFontSize),
-  );
-  const overlayWidth = Math.min(
-    width - margin * 2,
-    Math.max(Math.round(width * 0.34), textWidth + horizontalPadding * 2),
-  );
-  const overlayHeight =
-    verticalPadding * 2 + fontSize + (textLineTwo ? lineGap + smallFontSize : 0);
-  const left = Math.max(margin, width - overlayWidth - margin);
-  const top = Math.max(margin, height - overlayHeight - margin);
+  const barHeight = clamp(Math.round(height * 0.115), 86, 190);
+  const primaryFontSize = clamp(Math.round(shortestSide * 0.045), 28, 70);
+  const secondaryFontSize = clamp(Math.round(primaryFontSize * 0.58), 18, 42);
+  const lineGap = Math.round(primaryFontSize * 0.16);
+  const topLineOne = `${branding.name} | ${branding.dealerName}`;
+  const topLineTwo = "Deals with Dennis";
+  const bottomLineOne = [branding.phone, branding.website].filter(Boolean).join(" | ");
+  const bottomLineTwo = "Cam Clark Ford Richmond | Dealer #10904";
   const svg = createWatermarkSvg({
-    fontSize,
-    height: overlayHeight,
+    barHeight,
+    bottomLineOne,
+    bottomLineTwo,
+    height,
     lineGap,
-    smallFontSize,
-    textLineOne,
-    textLineTwo,
-    verticalPadding,
-    width: overlayWidth,
+    primaryFontSize,
+    secondaryFontSize,
+    topLineOne,
+    topLineTwo,
+    width,
   });
 
   return base
-    .composite([{ input: Buffer.from(svg), left, top }])
+    .composite([{ input: Buffer.from(svg), left: 0, top: 0 }])
     .jpeg({ mozjpeg: true, quality: 88 })
     .toBuffer();
 }
 
 function createWatermarkSvg({
-  fontSize,
+  barHeight,
+  bottomLineOne,
+  bottomLineTwo,
   height,
   lineGap,
-  smallFontSize,
-  textLineOne,
-  textLineTwo,
-  verticalPadding,
+  primaryFontSize,
+  secondaryFontSize,
+  topLineOne,
+  topLineTwo,
   width,
 }: {
-  fontSize: number;
+  barHeight: number;
+  bottomLineOne: string;
+  bottomLineTwo: string;
   height: number;
   lineGap: number;
-  smallFontSize: number;
-  textLineOne: string;
-  textLineTwo: string;
-  verticalPadding: number;
+  primaryFontSize: number;
+  secondaryFontSize: number;
+  topLineOne: string;
+  topLineTwo: string;
   width: number;
 }) {
-  const firstTop = verticalPadding;
-  const secondTop = firstTop + fontSize + lineGap;
-  const firstText = renderBitmapText({
-    fontSize,
-    text: textLineOne,
-    x: Math.round((width - measureBitmapText(textLineOne, fontSize)) / 2),
-    y: firstTop,
-  });
-  const secondText = textLineTwo
-    ? renderBitmapText({
-        fill: "#dbeee6",
-        fontSize: smallFontSize,
-        text: textLineTwo,
-        x: Math.round((width - measureBitmapText(textLineTwo, smallFontSize)) / 2),
-        y: secondTop,
-      })
-    : "";
+  const textMaxWidth = Math.max(1, width - 48);
+  const fittedPrimaryFontSize = Math.min(
+    fitBitmapFontSize(topLineOne, primaryFontSize, textMaxWidth),
+    fitBitmapFontSize(bottomLineOne, primaryFontSize, textMaxWidth),
+  );
+  const fittedSecondaryFontSize = Math.min(
+    fitBitmapFontSize(topLineTwo, secondaryFontSize, textMaxWidth),
+    fitBitmapFontSize(bottomLineTwo, secondaryFontSize, textMaxWidth),
+  );
+  const topPrimary = centerBitmapLine(topLineOne, fittedPrimaryFontSize, width);
+  const topSecondary = centerBitmapLine(topLineTwo, fittedSecondaryFontSize, width);
+  const bottomPrimary = centerBitmapLine(bottomLineOne, fittedPrimaryFontSize, width);
+  const bottomSecondary = centerBitmapLine(
+    bottomLineTwo,
+    fittedSecondaryFontSize,
+    width,
+  );
+  const topContentHeight =
+    getBitmapTextHeight(fittedPrimaryFontSize) +
+    lineGap +
+    getBitmapTextHeight(fittedSecondaryFontSize);
+  const topStart = Math.max(8, Math.round((barHeight - topContentHeight) / 2));
+  const bottomContentHeight =
+    getBitmapTextHeight(fittedPrimaryFontSize) +
+    lineGap +
+    getBitmapTextHeight(fittedSecondaryFontSize);
+  const bottomStart =
+    height - barHeight + Math.max(8, Math.round((barHeight - bottomContentHeight) / 2));
+  const topText = [
+    renderBitmapText({
+      fontSize: fittedPrimaryFontSize,
+      text: topLineOne,
+      x: topPrimary.x,
+      y: topStart,
+    }),
+    renderBitmapText({
+      fill: "#dbeee6",
+      fontSize: fittedSecondaryFontSize,
+      text: topLineTwo,
+      x: topSecondary.x,
+      y: topStart + getBitmapTextHeight(fittedPrimaryFontSize) + lineGap,
+    }),
+  ].join("");
+  const bottomText = [
+    renderBitmapText({
+      fontSize: fittedPrimaryFontSize,
+      text: bottomLineOne,
+      x: bottomPrimary.x,
+      y: bottomStart,
+    }),
+    renderBitmapText({
+      fill: "#dbeee6",
+      fontSize: fittedSecondaryFontSize,
+      text: bottomLineTwo,
+      x: bottomSecondary.x,
+      y: bottomStart + getBitmapTextHeight(fittedPrimaryFontSize) + lineGap,
+    }),
+  ].join("");
 
   return `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${width}" height="${height}" rx="${Math.round(height * 0.24)}" fill="#051f19" opacity="0.76"/>
-      ${firstText}
-      ${secondText}
+      <rect x="0" y="0" width="${width}" height="${barHeight}" fill="#051f19" opacity="0.86"/>
+      <rect x="0" y="${height - barHeight}" width="${width}" height="${barHeight}" fill="#051f19" opacity="0.88"/>
+      ${topText}
+      ${bottomText}
     </svg>
   `;
+}
+
+function centerBitmapLine(text: string, fontSize: number, containerWidth: number) {
+  const textWidth = measureBitmapText(text, fontSize);
+
+  return {
+    textWidth,
+    x: Math.max(12, Math.round((containerWidth - textWidth) / 2)),
+  };
+}
+
+function getBitmapTextHeight(fontSize: number) {
+  return getBitmapScale(fontSize) * 7;
+}
+
+function fitBitmapFontSize(text: string, preferredFontSize: number, maxWidth: number) {
+  let fontSize = preferredFontSize;
+
+  while (fontSize > 10 && measureBitmapText(text, fontSize) > maxWidth) {
+    fontSize -= 1;
+  }
+
+  return fontSize;
 }
 
 function getWatermarkedPath(vehicleId: string, originalUrl: string, index: number) {

@@ -433,6 +433,73 @@ export function AdminInventoryManager({
     );
   }
 
+  function removeWatermarksFromVehicle(id: string) {
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentPhotos = getVehiclePhotos(vehicle);
+    const nextPhotos = currentPhotos.map((photo) => ({
+      ...photo,
+      watermarkError: "",
+      watermarkedUrl: "",
+      watermarkStatus: "idle" as const,
+    }));
+
+    if (!nextPhotos.some((photo, index) => currentPhotos[index]?.watermarkedUrl)) {
+      setNotice("This vehicle is already using original photos.");
+      return;
+    }
+
+    updateVehicle(id, {
+      imageUrls: nextPhotos.map((photo) => photo.originalUrl),
+      vehiclePhotos: nextPhotos,
+    });
+    setPhotoPreviewMode("original");
+    setNotice("Watermarks removed for this vehicle. Click Save Vehicles to publish originals.");
+  }
+
+  function removeWatermarksFromAllVehicles() {
+    const vehiclesWithWatermarks = vehicles.filter((vehicle) =>
+      getVehiclePhotos(vehicle).some((photo) => photo.watermarkedUrl),
+    );
+
+    if (!vehiclesWithWatermarks.length) {
+      setNotice("All vehicles are already using original photos.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove watermarked versions from ${vehiclesWithWatermarks.length} vehicle${vehiclesWithWatermarks.length === 1 ? "" : "s"} and publish originals after saving? Original photos will stay untouched.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setVehicles((currentVehicles) =>
+      currentVehicles.map((vehicle) => {
+        const photos = getVehiclePhotos(vehicle);
+
+        if (!photos.some((photo) => photo.watermarkedUrl)) {
+          return vehicle;
+        }
+
+        const nextPhotos = photos.map((photo) => ({
+          ...photo,
+          watermarkError: "",
+          watermarkedUrl: "",
+          watermarkStatus: "idle" as const,
+        }));
+
+        return {
+          ...vehicle,
+          imageUrls: nextPhotos.map((photo) => photo.originalUrl),
+          vehiclePhotos: nextPhotos,
+        };
+      }),
+    );
+    setPhotoPreviewMode("original");
+    setNotice("Watermarks removed from all vehicles. Click Save Vehicles to publish originals.");
+  }
+
   async function processVehicleWatermarks(
     id: string,
     currentPhotos: VehiclePhoto[],
@@ -772,6 +839,13 @@ export function AdminInventoryManager({
           >
             {watermarking ? "Watermarking..." : "Watermark All Vehicles"}
           </button>
+          <button
+            className="button secondary"
+            onClick={removeWatermarksFromAllVehicles}
+            type="button"
+          >
+            Remove All Watermarks
+          </button>
           <button className="button secondary" onClick={logout} type="button">
             Sign Out
           </button>
@@ -1006,6 +1080,14 @@ export function AdminInventoryManager({
                       type="button"
                     >
                       Apply Watermark to All Photos
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={!selectedWatermarkedCount}
+                      onClick={() => removeWatermarksFromVehicle(selectedVehicle.id)}
+                      type="button"
+                    >
+                      Remove Watermarks
                     </button>
                   </div>
                   <input
