@@ -30,6 +30,9 @@ const classNameOptions = [
 const drivetrainOptions = ["", "FWD", "RWD", "AWD", "4x4", "Other"];
 const transmissionOptions = ["", "Manual", "Auto", "Other"];
 const fuelOptions = ["", "Diesel", "Gasoline", "Hybrid", "EV", "PHEV", "Other"];
+const maxScreenshotFiles = 8;
+const maxScreenshotSide = 1600;
+const screenshotQuality = 0.72;
 const claimStatusOptions: { label: string; value: ClaimStatus }[] = [
   { label: "Unknown", value: "unknown" },
   { label: "No claim", value: "no-claim" },
@@ -235,7 +238,7 @@ export function BulkInventoryEditor({
   }
 
   async function extractFromScreenshots(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
+    const files = Array.from(event.target.files ?? []).slice(0, maxScreenshotFiles);
     event.target.value = "";
 
     if (!files.length) {
@@ -243,10 +246,26 @@ export function BulkInventoryEditor({
     }
 
     setExtracting(true);
-    setNotice(`Reading ${files.length} screenshot${files.length === 1 ? "" : "s"}...`);
+    setNotice(
+      `Preparing ${files.length} screenshot${files.length === 1 ? "" : "s"} for recognition...`,
+    );
 
     const formData = new FormData();
-    files.forEach((file) => formData.append("images", file));
+
+    try {
+      const compressedFiles = await Promise.all(files.map(compressScreenshotFile));
+      const originalSize = files.reduce((total, file) => total + file.size, 0);
+      const compressedSize = compressedFiles.reduce((total, file) => total + file.size, 0);
+
+      compressedFiles.forEach((file) => formData.append("images", file));
+      setNotice(
+        `Reading screenshots... compressed from ${formatBytes(originalSize)} to ${formatBytes(compressedSize)}.`,
+      );
+    } catch (error) {
+      setNotice(`Screenshot import failed while preparing images: ${getErrorMessage(error)}`);
+      setExtracting(false);
+      return;
+    }
 
     let response: Response;
 
@@ -262,7 +281,12 @@ export function BulkInventoryEditor({
     }
 
     if (!response.ok) {
-      setNotice(await readErrorMessage(response, "Screenshot import failed."));
+      const message = await readErrorMessage(response, "Screenshot import failed.");
+      setNotice(
+        response.status === 413 || /payload|too large/i.test(message)
+          ? `${message}. Try fewer screenshots at once, or crop each screenshot closer to the vehicle information.`
+          : message,
+      );
       setExtracting(false);
       return;
     }
@@ -669,6 +693,70 @@ function hasListedPrice(value: string | undefined) {
   const text = String(value ?? "").trim();
 
   return Boolean(text) && !/call|ask|tbd|pricing/i.test(text);
+}
+
+async function compressScreenshotFile(file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(`${file.name} is not an image file.`);
+  }
+
+  const image = await loadImage(file);
+  const scale = Math.min(1, maxScreenshotSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Browser could not prepare the screenshot for upload.");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", screenshotQuality),
+  );
+
+  if (!blob) {
+    throw new Error(`Could not compress ${file.name}.`);
+  }
+
+  return new File(
+    [blob],
+    `${file.name.replace(/\.[^.]+$/, "") || "screenshot"}.jpg`,
+    {
+      lastModified: Date.now(),
+      type: "image/jpeg",
+    },
+  );
+}
+
+async function loadImage(file: File) {
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+      image.src = objectUrl;
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  return image;
+}
+
+function formatBytes(value: number) {
+  if (value < 1024 * 1024) {
+    return `${Math.max(1, Math.round(value / 1024))} KB`;
+  }
+
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getErrorMessage(error: unknown) {
