@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import sharp from "sharp";
 import { defaultSiteContent, type SiteContent } from "./site-content";
 import { createSupabaseAdmin } from "./supabase/admin";
@@ -15,7 +17,12 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-png-fixed-bars-v4";
+const watermarkRenderVersion = "2026-08-14-jpg-watermark-assets-v5";
+const watermarkAssetAspectRatio = 2400 / 260;
+const watermarkAssetPaths = {
+  bottom: path.join(process.cwd(), "public", "watermarks", "bottom.jpg"),
+  top: path.join(process.cwd(), "public", "watermarks", "top.jpg"),
+};
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -94,7 +101,7 @@ async function downloadImage(url: string) {
 
 async function applyDealsWithDennisWatermark(
   input: Buffer,
-  branding: {
+  _branding: {
     dealerName: string;
     name: string;
     phone: string;
@@ -105,33 +112,13 @@ async function applyDealsWithDennisWatermark(
   const metadata = await base.metadata();
   const width = metadata.width ?? 1600;
   const height = metadata.height ?? 1200;
-  const shortestSide = Math.max(1, Math.min(width, height));
-  const barHeight = clamp(Math.round(height * 0.13), 110, 220);
-  const primaryFontSize = clamp(Math.round(shortestSide * 0.052), 38, 86);
-  const secondaryFontSize = clamp(Math.round(primaryFontSize * 0.58), 22, 48);
-  const lineGap = Math.round(primaryFontSize * 0.16);
-  const topLineOne = "DENNIS LIU | DEALS WITH DENNIS";
-  const topLineTwo = "Fresh inventory updates";
-  const bottomLineOne = [branding.phone, branding.website].filter(Boolean).join(" | ");
-  const bottomLineTwo = "Cam Clark Ford Richmond | Dealer #10904";
-  const topOverlay = await createWatermarkBarImage({
-    barHeight,
-    lineGap,
-    primaryFontSize,
-    primaryText: topLineOne,
-    secondaryFontSize,
-    secondaryText: topLineTwo,
+  const barHeight = clamp(Math.round(width / watermarkAssetAspectRatio), 78, 260);
+  const topOverlay = await createWatermarkAssetOverlay(watermarkAssetPaths.top, width, barHeight);
+  const bottomOverlay = await createWatermarkAssetOverlay(
+    watermarkAssetPaths.bottom,
     width,
-  });
-  const bottomOverlay = await createWatermarkBarImage({
     barHeight,
-    lineGap,
-    primaryFontSize,
-    primaryText: bottomLineOne,
-    secondaryFontSize,
-    secondaryText: bottomLineTwo,
-    width,
-  });
+  );
 
   return base
     .composite([
@@ -139,6 +126,15 @@ async function applyDealsWithDennisWatermark(
       { input: bottomOverlay, left: 0, top: Math.max(0, height - barHeight) },
     ])
     .jpeg({ mozjpeg: true, quality: 88 })
+    .toBuffer();
+}
+
+async function createWatermarkAssetOverlay(assetPath: string, width: number, height: number) {
+  const asset = await readFile(assetPath);
+
+  return sharp(asset, { failOn: "none" })
+    .resize(width, height, { fit: "fill" })
+    .jpeg({ mozjpeg: true, quality: 92 })
     .toBuffer();
 }
 
