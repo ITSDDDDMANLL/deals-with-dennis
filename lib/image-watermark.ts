@@ -17,7 +17,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-jpg-watermark-assets-v5";
+const watermarkRenderVersion = "2026-08-14-jpg-watermark-assets-v6";
 const watermarkAssetAspectRatio = 2400 / 260;
 const watermarkAssetPaths = {
   bottom: path.join(process.cwd(), "public", "watermarks", "bottom.jpg"),
@@ -133,7 +133,11 @@ async function createWatermarkAssetOverlay(assetPath: string, width: number, hei
   const asset = await readFile(assetPath);
 
   return sharp(asset, { failOn: "none" })
-    .resize(width, height, { fit: "fill" })
+    .resize(width, height, {
+      background: { b: 67, g: 83, r: 18 },
+      fit: "contain",
+      withoutEnlargement: false,
+    })
     .jpeg({ mozjpeg: true, quality: 92 })
     .toBuffer();
 }
