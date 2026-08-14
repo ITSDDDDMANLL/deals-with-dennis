@@ -630,7 +630,7 @@ export function AdminInventoryManager({
     };
   }
 
-  async function loadInventory() {
+  async function loadInventory(preferredSelectedId = selectedId) {
     const response = await fetch("/api/admin/inventory");
 
     if (!response.ok) {
@@ -641,15 +641,19 @@ export function AdminInventoryManager({
     const data = (await response.json()) as { vehicles?: EditableVehicle[] };
 
     if (data.vehicles?.length) {
-      setVehicles(
-        data.vehicles.map((vehicle) => ({
+      const loadedVehicles = data.vehicles.map((vehicle) => ({
           ...vehicle,
           claimStatus: vehicle.claimStatus ?? "unknown",
           isFeatured: vehicle.isFeatured ?? true,
           vehiclePhotos: getVehiclePhotos(vehicle),
-        })),
+        }));
+
+      setVehicles(loadedVehicles);
+      setSelectedId(
+        loadedVehicles.some((vehicle) => vehicle.id === preferredSelectedId)
+          ? preferredSelectedId
+          : loadedVehicles[0].id,
       );
-      setSelectedId(data.vehicles[0].id);
     }
   }
 
@@ -698,7 +702,15 @@ export function AdminInventoryManager({
   }
 
   async function reloadVehicles() {
-    await loadInventory();
+    const confirmed = window.confirm(
+      "Reload vehicles from Supabase? Unsaved vehicle edits on this page will be discarded.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await loadInventory(selectedId);
     setDeletedVehicles([]);
     setNotice("Vehicles reloaded from Supabase.");
   }
@@ -850,6 +862,13 @@ export function AdminInventoryManager({
           </label>
           <button className="button secondary" onClick={exportVehicles} type="button">
             Export
+          </button>
+          <button
+            className="button secondary"
+            onClick={reloadVehicles}
+            type="button"
+          >
+            Reload from Supabase
           </button>
           <button className="button secondary" onClick={addVehicle} type="button">
             Add Vehicle
@@ -1382,9 +1401,6 @@ export function AdminInventoryManager({
             </div>
 
             <div className="admin-actions bottom-actions">
-              <button className="button secondary" onClick={reloadVehicles} type="button">
-                Reload Vehicles
-              </button>
               <button
                 className="button primary"
                 disabled={saving}
