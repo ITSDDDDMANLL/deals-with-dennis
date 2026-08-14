@@ -15,7 +15,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-system-font-bars";
+const watermarkRenderVersion = "2026-08-14-sharp-text-bars-v2";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -114,22 +114,144 @@ async function applyDealsWithDennisWatermark(
   const topLineTwo = "Deals with Dennis";
   const bottomLineOne = [branding.phone, branding.website].filter(Boolean).join(" | ");
   const bottomLineTwo = "Cam Clark Ford Richmond | Dealer #10904";
-  const svg = createWatermarkSvg({
+  const topBar = await createBarOverlay(width, barHeight, 0.86);
+  const bottomBar = await createBarOverlay(width, barHeight, 0.88);
+  const topText = await createWatermarkTextOverlay({
     barHeight,
-    bottomLineOne,
-    bottomLineTwo,
-    height,
     lineGap,
     primaryFontSize,
+    primaryText: topLineOne,
     secondaryFontSize,
-    topLineOne,
-    topLineTwo,
+    secondaryText: topLineTwo,
+    width,
+  });
+  const bottomText = await createWatermarkTextOverlay({
+    barHeight,
+    lineGap,
+    primaryFontSize,
+    primaryText: bottomLineOne,
+    secondaryFontSize,
+    secondaryText: bottomLineTwo,
     width,
   });
 
   return base
-    .composite([{ input: Buffer.from(svg), left: 0, top: 0 }])
+    .composite([
+      { input: topBar, left: 0, top: 0 },
+      { input: bottomBar, left: 0, top: height - barHeight },
+      { input: topText, left: 0, top: 0 },
+      { input: bottomText, left: 0, top: height - barHeight },
+    ])
     .jpeg({ mozjpeg: true, quality: 88 })
+    .toBuffer();
+}
+
+async function createBarOverlay(width: number, height: number, opacity: number) {
+  return sharp({
+    create: {
+      background: { alpha: opacity, b: 25, g: 31, r: 5 },
+      channels: 4,
+      height,
+      width,
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+async function createWatermarkTextOverlay({
+  barHeight,
+  lineGap,
+  primaryFontSize,
+  primaryText,
+  secondaryFontSize,
+  secondaryText,
+  width,
+}: {
+  barHeight: number;
+  lineGap: number;
+  primaryFontSize: number;
+  primaryText: string;
+  secondaryFontSize: number;
+  secondaryText: string;
+  width: number;
+}) {
+  const textMaxWidth = Math.max(1, width - 56);
+  const fittedPrimaryFontSize = fitSvgFontSize(
+    primaryText,
+    primaryFontSize,
+    textMaxWidth,
+    0.58,
+  );
+  const fittedSecondaryFontSize = fitSvgFontSize(
+    secondaryText,
+    secondaryFontSize,
+    textMaxWidth,
+    0.56,
+  );
+  const primaryBoxHeight = Math.ceil(fittedPrimaryFontSize * 1.34);
+  const secondaryBoxHeight = Math.ceil(fittedSecondaryFontSize * 1.35);
+  const contentHeight = primaryBoxHeight + lineGap + secondaryBoxHeight;
+  const startY = Math.max(4, Math.round((barHeight - contentHeight) / 2));
+  const primaryLayer = await renderTextLayer({
+    color: "#ffffff",
+    fontSize: fittedPrimaryFontSize,
+    height: primaryBoxHeight,
+    text: primaryText,
+    weight: "800",
+    width,
+  });
+  const secondaryLayer = await renderTextLayer({
+    color: "#dbeee6",
+    fontSize: fittedSecondaryFontSize,
+    height: secondaryBoxHeight,
+    text: secondaryText,
+    weight: "700",
+    width,
+  });
+
+  return sharp({
+    create: {
+      background: { alpha: 0, b: 0, g: 0, r: 0 },
+      channels: 4,
+      height: barHeight,
+      width,
+    },
+  })
+    .composite([
+      { input: primaryLayer, left: 0, top: startY },
+      { input: secondaryLayer, left: 0, top: startY + primaryBoxHeight + lineGap },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function renderTextLayer({
+  color,
+  fontSize,
+  height,
+  text,
+  weight,
+  width,
+}: {
+  color: string;
+  fontSize: number;
+  height: number;
+  text: string;
+  weight: "700" | "800";
+  width: number;
+}) {
+  return sharp({
+    text: {
+      align: "centre",
+      font: `sans ${fontSize}`,
+      height,
+      rgba: true,
+      text: `<span foreground="${color}" font_weight="${weight}">${escapePangoText(text)}</span>`,
+      width,
+    },
+  })
+    .png()
     .toBuffer();
 }
 
@@ -239,6 +361,13 @@ function escapeSvgText(value: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapePangoText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function centerBitmapLine(text: string, fontSize: number, containerWidth: number) {
