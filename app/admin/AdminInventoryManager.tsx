@@ -77,7 +77,6 @@ const classNameOptions = [
   "Wagon",
   "Convertible",
   "Truck",
-  "Pickup Truck",
   "Van",
   "Minivan",
   "Cargo Van",

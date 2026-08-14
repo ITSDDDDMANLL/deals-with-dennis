@@ -36,7 +36,6 @@ const classNameOptions = [
   "Wagon",
   "Convertible",
   "Truck",
-  "Pickup Truck",
   "Van",
   "Minivan",
   "Cargo Van",
@@ -100,7 +99,7 @@ Rules:
 - drivetrain should be FWD, RWD, AWD, 4x4, Other, or empty.
 - transmission should be Manual, Auto, Other, or empty.
 - fuel should be Diesel, Gasoline, Hybrid, EV, PHEV, Other, or empty.
-- className should be SUV, Crossover, Sedan, Coupe, Hatchback, Wagon, Convertible, Truck, Pickup Truck, Van, Minivan, Cargo Van, Passenger Van, Commercial, Chassis Cab, Other, or empty.
+- className should be SUV, Crossover, Sedan, Coupe, Hatchback, Wagon, Convertible, Truck, Van, Minivan, Cargo Van, Passenger Van, Commercial, Chassis Cab, Other, or empty. Use Truck for pickup truck, pick-up, crew cab, or other pickup-style labels.
 - mileageLabel should contain digits only. Do not include "km" or commas.
 - Unknown fields should be empty strings, except year can be 0.`;
 
@@ -1490,7 +1489,9 @@ function normalizeImportedVehicle(row: Record<string, unknown>): ExtractedVehicl
     claimStatus: normalizeImportedClaim(
       getImportedValue(row, "claimStatus", "claim", "claims", "accident"),
     ),
-    className: getImportedValue(row, "className", "class", "bodyStyle", "body", "vehicleClass"),
+    className: normalizeImportedClassName(
+      getImportedValue(row, "className", "class", "bodyStyle", "body", "vehicleClass"),
+    ),
     details: getImportedValue(row, "details", "description", "notes"),
     drivetrain: normalizeImportedOption(
       getImportedValue(row, "drivetrain", "driveTrain", "drive"),
@@ -1555,6 +1556,80 @@ function normalizeImportedStatus(value: string, priceLabel: string): Vehicle["st
   }
 
   return hasListedPrice(priceLabel) ? "available" : "incoming";
+}
+
+function normalizeImportedClassName(value: string) {
+  const text = value.trim();
+  const normalized = text.toLowerCase().replace(/[-_/]+/g, " ").replace(/\s+/g, " ");
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (
+    normalized.includes("pickup") ||
+    normalized.includes("pick up") ||
+    normalized.includes("truck") ||
+    normalized.includes("crew cab") ||
+    normalized.includes("supercrew") ||
+    normalized.includes("super cab")
+  ) {
+    return "Truck";
+  }
+
+  if (normalized.includes("sport utility") || normalized.includes("suv")) {
+    return "SUV";
+  }
+
+  if (normalized.includes("crossover")) {
+    return "Crossover";
+  }
+
+  if (normalized.includes("sedan")) {
+    return "Sedan";
+  }
+
+  if (normalized.includes("coupe")) {
+    return "Coupe";
+  }
+
+  if (normalized.includes("hatch")) {
+    return "Hatchback";
+  }
+
+  if (normalized.includes("wagon")) {
+    return "Wagon";
+  }
+
+  if (normalized.includes("convertible")) {
+    return "Convertible";
+  }
+
+  if (normalized.includes("minivan")) {
+    return "Minivan";
+  }
+
+  if (normalized.includes("cargo van")) {
+    return "Cargo Van";
+  }
+
+  if (normalized.includes("passenger van")) {
+    return "Passenger Van";
+  }
+
+  if (normalized.includes("van")) {
+    return "Van";
+  }
+
+  if (normalized.includes("commercial")) {
+    return "Commercial";
+  }
+
+  if (normalized.includes("chassis")) {
+    return "Chassis Cab";
+  }
+
+  return normalizeImportedOption(text, classNameOptions);
 }
 
 function normalizeImportedClaim(value: string): ClaimStatus {

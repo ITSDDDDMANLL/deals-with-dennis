@@ -15,7 +15,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-svg-full-bars-v3";
+const watermarkRenderVersion = "2026-08-14-png-fixed-bars-v4";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -106,30 +106,140 @@ async function applyDealsWithDennisWatermark(
   const width = metadata.width ?? 1600;
   const height = metadata.height ?? 1200;
   const shortestSide = Math.max(1, Math.min(width, height));
-  const barHeight = clamp(Math.round(height * 0.115), 86, 190);
-  const primaryFontSize = clamp(Math.round(shortestSide * 0.045), 28, 70);
-  const secondaryFontSize = clamp(Math.round(primaryFontSize * 0.58), 18, 42);
+  const barHeight = clamp(Math.round(height * 0.13), 110, 220);
+  const primaryFontSize = clamp(Math.round(shortestSide * 0.052), 38, 86);
+  const secondaryFontSize = clamp(Math.round(primaryFontSize * 0.58), 22, 48);
   const lineGap = Math.round(primaryFontSize * 0.16);
-  const topLineOne = `${branding.name} | ${branding.dealerName}`;
-  const topLineTwo = "Deals with Dennis";
+  const topLineOne = "DENNIS LIU | DEALS WITH DENNIS";
+  const topLineTwo = "Fresh inventory updates";
   const bottomLineOne = [branding.phone, branding.website].filter(Boolean).join(" | ");
   const bottomLineTwo = "Cam Clark Ford Richmond | Dealer #10904";
-  const overlay = Buffer.from(createWatermarkSvg({
+  const topOverlay = await createWatermarkBarImage({
     barHeight,
-    bottomLineOne,
-    bottomLineTwo,
-    height,
     lineGap,
     primaryFontSize,
+    primaryText: topLineOne,
     secondaryFontSize,
-    topLineOne,
-    topLineTwo,
+    secondaryText: topLineTwo,
     width,
-  }));
+  });
+  const bottomOverlay = await createWatermarkBarImage({
+    barHeight,
+    lineGap,
+    primaryFontSize,
+    primaryText: bottomLineOne,
+    secondaryFontSize,
+    secondaryText: bottomLineTwo,
+    width,
+  });
 
   return base
-    .composite([{ input: overlay, left: 0, top: 0 }])
+    .composite([
+      { input: topOverlay, left: 0, top: 0 },
+      { input: bottomOverlay, left: 0, top: Math.max(0, height - barHeight) },
+    ])
     .jpeg({ mozjpeg: true, quality: 88 })
+    .toBuffer();
+}
+
+async function createWatermarkBarImage({
+  barHeight,
+  lineGap,
+  primaryFontSize,
+  primaryText,
+  secondaryFontSize,
+  secondaryText,
+  width,
+}: {
+  barHeight: number;
+  lineGap: number;
+  primaryFontSize: number;
+  primaryText: string;
+  secondaryFontSize: number;
+  secondaryText: string;
+  width: number;
+}) {
+  const textMaxWidth = Math.max(1, width - 72);
+  const fittedPrimaryFontSize = fitSvgFontSize(
+    primaryText,
+    primaryFontSize,
+    textMaxWidth,
+    0.72,
+  );
+  const fittedSecondaryFontSize = fitSvgFontSize(
+    secondaryText,
+    secondaryFontSize,
+    textMaxWidth,
+    0.62,
+  );
+  const primaryBoxHeight = Math.ceil(fittedPrimaryFontSize * 1.32);
+  const secondaryBoxHeight = Math.ceil(fittedSecondaryFontSize * 1.35);
+  const contentHeight = primaryBoxHeight + lineGap + secondaryBoxHeight;
+  const startY = Math.max(8, Math.round((barHeight - contentHeight) / 2));
+  const base = sharp({
+    create: {
+      background: { alpha: 0.93, b: 51, g: 79, r: 4 },
+      channels: 4,
+      height: barHeight,
+      width,
+    },
+  });
+  const primaryLayer = await renderPngTextLayer({
+    color: "#ffffff",
+    fontSize: fittedPrimaryFontSize,
+    height: primaryBoxHeight,
+    text: primaryText,
+    weight: "Bold",
+    width,
+  });
+  const secondaryLayer = await renderPngTextLayer({
+    color: "#d8f4eb",
+    fontSize: fittedSecondaryFontSize,
+    height: secondaryBoxHeight,
+    text: secondaryText,
+    weight: "Medium",
+    width,
+  });
+
+  return base
+    .composite([
+      { input: primaryLayer, left: 0, top: startY },
+      {
+        input: secondaryLayer,
+        left: 0,
+        top: startY + primaryBoxHeight + lineGap,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function renderPngTextLayer({
+  color,
+  fontSize,
+  height,
+  text,
+  weight,
+  width,
+}: {
+  color: string;
+  fontSize: number;
+  height: number;
+  text: string;
+  weight: "Bold" | "Medium";
+  width: number;
+}) {
+  return sharp({
+    text: {
+      align: "centre",
+      font: "Arial",
+      height,
+      rgba: true,
+      text: `<span foreground="${color}" font_desc="Arial ${weight} ${fontSize}">${escapePangoText(text)}</span>`,
+      width,
+    },
+  })
+    .png()
     .toBuffer();
 }
 
