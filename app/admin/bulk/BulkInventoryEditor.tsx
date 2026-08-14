@@ -851,9 +851,9 @@ function normalizeCompareValue(value: unknown) {
 
 function getVehicleChangeKey(vehicle: Pick<Vehicle, "id" | "stockNumber" | "vin">) {
   return (
+    String(vehicle.id ?? "").trim().toLowerCase() ||
     String(vehicle.stockNumber ?? "").trim().toLowerCase() ||
-    String(vehicle.vin ?? "").trim().toLowerCase() ||
-    vehicle.id
+    String(vehicle.vin ?? "").trim().toLowerCase()
   );
 }
 
