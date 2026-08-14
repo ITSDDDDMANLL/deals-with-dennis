@@ -1,14 +1,19 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { ClaimStatus, Vehicle, VehicleType } from "../data/inventory";
+import type {
+  ClaimStatus,
+  Vehicle,
+  VehiclePhoto,
+  VehicleType,
+} from "../data/inventory";
 import { readErrorMessage } from "../utils/read-error-message";
 
 type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
 };
 
-const maxVehicleImages = 20;
+const maxVehicleImages = 40;
 const maxImageSizeBytes = 12_000_000;
 
 const blankVehicle: EditableVehicle = {
@@ -31,6 +36,7 @@ const blankVehicle: EditableVehicle = {
   claimStatus: "unknown",
   isFeatured: true,
   imageUrls: [],
+  vehiclePhotos: [],
   details: "",
   highlights: "",
 };
@@ -70,6 +76,7 @@ export function AdminInventoryManager({
       ...vehicle,
       claimStatus: vehicle.claimStatus ?? "unknown",
       isFeatured: vehicle.isFeatured ?? true,
+      vehiclePhotos: getVehiclePhotos(vehicle),
     })),
   );
   const [selectedId, setSelectedId] = useState(initialVehicles[0]?.id ?? "");
@@ -83,6 +90,9 @@ export function AdminInventoryManager({
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
   const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
+  const [photoPreviewMode, setPhotoPreviewMode] = useState<
+    "original" | "watermarked"
+  >("watermarked");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const vehicleImageInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -188,11 +198,11 @@ export function AdminInventoryManager({
     }
 
     const vehicle = vehicles.find((item) => item.id === id);
-    const currentImages = vehicle?.imageUrls ?? [];
-    const openSlots = maxVehicleImages - currentImages.length;
+    const currentPhotos = getVehiclePhotos(vehicle);
+    const openSlots = maxVehicleImages - currentPhotos.length;
 
     if (openSlots <= 0) {
-      setNotice("This vehicle already has the 20 image maximum.");
+      setNotice("This vehicle already has the 40 image maximum.");
       return;
     }
 
@@ -291,7 +301,14 @@ export function AdminInventoryManager({
     }
 
     updateVehicle(id, {
-      imageUrls: [...currentImages, ...imageUrls],
+      imageUrls: [
+        ...currentPhotos.map(getPublicPhotoUrl),
+        ...imageUrls,
+      ],
+      vehiclePhotos: [
+        ...currentPhotos,
+        ...imageUrls.map((imageUrl) => createVehiclePhoto(imageUrl)),
+      ],
     });
     setNotice(
       `Added ${imageUrls.length} image${imageUrls.length === 1 ? "" : "s"}${
@@ -302,25 +319,30 @@ export function AdminInventoryManager({
 
   function removeVehicleImage(id: string, imageIndex: number) {
     const vehicle = vehicles.find((item) => item.id === id);
-    const currentImages = vehicle?.imageUrls ?? [];
+    const currentPhotos = getVehiclePhotos(vehicle);
+    const nextPhotos = currentPhotos.filter((_, index) => index !== imageIndex);
 
     updateVehicle(id, {
-      imageUrls: currentImages.filter((_, index) => index !== imageIndex),
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
     });
     setNotice("Image removed.");
   }
 
   function setCoverImage(id: string, imageIndex: number) {
     const vehicle = vehicles.find((item) => item.id === id);
-    const currentImages = [...(vehicle?.imageUrls ?? [])];
-    const [selected] = currentImages.splice(imageIndex, 1);
+    const currentPhotos = [...getVehiclePhotos(vehicle)];
+    const [selected] = currentPhotos.splice(imageIndex, 1);
 
     if (!selected) {
       return;
     }
 
+    const nextPhotos = [selected, ...currentPhotos];
+
     updateVehicle(id, {
-      imageUrls: [selected, ...currentImages],
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
     });
     setNotice("Cover image updated.");
   }
@@ -336,18 +358,122 @@ export function AdminInventoryManager({
     }
 
     const vehicle = vehicles.find((item) => item.id === id);
-    const currentImages = [...(vehicle?.imageUrls ?? [])];
-    const [movedImage] = currentImages.splice(fromIndex, 1);
+    const currentPhotos = [...getVehiclePhotos(vehicle)];
+    const [movedImage] = currentPhotos.splice(fromIndex, 1);
 
     if (!movedImage) {
       setDraggedImageIndex(null);
       return;
     }
 
-    currentImages.splice(toIndex, 0, movedImage);
-    updateVehicle(id, { imageUrls: currentImages });
+    currentPhotos.splice(toIndex, 0, movedImage);
+    updateVehicle(id, {
+      imageUrls: currentPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: currentPhotos,
+    });
     setDraggedImageIndex(null);
     setNotice("Image order updated. Click Save Vehicles to publish it.");
+  }
+
+  async function applyWatermarkToVehicleImages(id: string) {
+    const vehicle = vehicles.find((item) => item.id === id);
+    const currentPhotos = getVehiclePhotos(vehicle);
+
+    if (!currentPhotos.length) {
+      setNotice("Upload original photos before applying a watermark.");
+      return;
+    }
+
+    setNotice(
+      `Applying watermark to ${currentPhotos.length} photo${currentPhotos.length === 1 ? "" : "s"}...`,
+    );
+    updateVehicle(id, {
+      vehiclePhotos: currentPhotos.map((photo) => ({
+        ...photo,
+        watermarkError: "",
+        watermarkStatus: "processing",
+      })),
+    });
+
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/images/watermark", {
+        body: JSON.stringify({
+          photos: currentPhotos.map((photo) => ({
+            id: photo.id,
+            originalUrl: photo.originalUrl,
+          })),
+          vehicleId: id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    } catch (error) {
+      setNotice(
+        `Watermark failed before reaching the server: ${getErrorMessage(error)}`,
+      );
+      updateVehicle(id, { vehiclePhotos: currentPhotos });
+      return;
+    }
+
+    if (!response.ok) {
+      setNotice(await readErrorMessage(response, "Watermark processing failed."));
+      updateVehicle(id, { vehiclePhotos: currentPhotos });
+      return;
+    }
+
+    const result = (await response.json()) as {
+      failed?: number;
+      results?: {
+        error?: string;
+        id?: string;
+        originalUrl: string;
+        watermarkedUrl?: string;
+      }[];
+      succeeded?: number;
+    };
+    const resultMap = new Map(
+      (result.results ?? []).map((photoResult) => [
+        getPhotoKey(photoResult),
+        photoResult,
+      ]),
+    );
+    const nextPhotos = currentPhotos.map((photo) => {
+      const photoResult = resultMap.get(getPhotoKey(photo));
+
+      if (!photoResult) {
+        return {
+          ...photo,
+          watermarkError: "No result returned for this photo.",
+          watermarkStatus: "failed" as const,
+        };
+      }
+
+      if (photoResult.error || !photoResult.watermarkedUrl) {
+        return {
+          ...photo,
+          watermarkError: photoResult.error ?? "Watermarked URL was not returned.",
+          watermarkStatus: "failed" as const,
+        };
+      }
+
+      return {
+        ...photo,
+        watermarkError: "",
+        watermarkedUrl: photoResult.watermarkedUrl,
+        watermarkStatus: "done" as const,
+      };
+    });
+
+    updateVehicle(id, {
+      imageUrls: nextPhotos.map(getPublicPhotoUrl),
+      vehiclePhotos: nextPhotos,
+    });
+    setPhotoPreviewMode("watermarked");
+    setNotice(
+      `Watermark complete: ${result.succeeded ?? 0} succeeded, ${result.failed ?? 0} failed. Click Save Vehicles to publish.`,
+    );
   }
 
   async function loadInventory() {
@@ -366,6 +492,7 @@ export function AdminInventoryManager({
           ...vehicle,
           claimStatus: vehicle.claimStatus ?? "unknown",
           isFeatured: vehicle.isFeatured ?? true,
+          vehiclePhotos: getVehiclePhotos(vehicle),
         })),
       );
       setSelectedId(data.vehicles[0].id);
@@ -536,6 +663,7 @@ export function AdminInventoryManager({
         status: vehicle.status ?? "available",
         isFeatured: vehicle.isFeatured ?? true,
         claimStatus: normalizeClaimStatus(vehicle.claimStatus),
+        vehiclePhotos: getVehiclePhotos(vehicle as EditableVehicle),
       }),
     );
 
@@ -545,6 +673,14 @@ export function AdminInventoryManager({
     setNotice(`Imported ${normalized.length} vehicles. Click Save Vehicles to publish them.`);
     event.target.value = "";
   }
+
+  const selectedVehiclePhotos = getVehiclePhotos(selectedVehicle);
+  const selectedWatermarkedCount = selectedVehiclePhotos.filter(
+    (photo) => photo.watermarkedUrl,
+  ).length;
+  const selectedFailedWatermarkCount = selectedVehiclePhotos.filter(
+    (photo) => photo.watermarkStatus === "failed",
+  ).length;
 
   return (
     <section className="admin-shell">
@@ -759,17 +895,47 @@ export function AdminInventoryManager({
                   <div>
                     <span>Vehicle images</span>
                     <p>
-                      {(selectedVehicle.imageUrls?.length ?? 0)} /{" "}
-                      {maxVehicleImages} uploaded
+                      {selectedVehiclePhotos.length} / {maxVehicleImages} uploaded
+                      {selectedWatermarkedCount
+                        ? ` · ${selectedWatermarkedCount} watermarked`
+                        : ""}
                     </p>
                   </div>
-                  <button
-                    className="button secondary"
-                    onClick={() => vehicleImageInputRef.current?.click()}
-                    type="button"
-                  >
-                    Upload Images
-                  </button>
+                  <div className="image-manager-actions">
+                    <div className="segmented-control photo-preview-toggle">
+                      <button
+                        aria-pressed={photoPreviewMode === "original"}
+                        className={photoPreviewMode === "original" ? "active" : ""}
+                        onClick={() => setPhotoPreviewMode("original")}
+                        type="button"
+                      >
+                        Original
+                      </button>
+                      <button
+                        aria-pressed={photoPreviewMode === "watermarked"}
+                        className={photoPreviewMode === "watermarked" ? "active" : ""}
+                        onClick={() => setPhotoPreviewMode("watermarked")}
+                        type="button"
+                      >
+                        Watermarked
+                      </button>
+                    </div>
+                    <button
+                      className="button secondary"
+                      onClick={() => vehicleImageInputRef.current?.click()}
+                      type="button"
+                    >
+                      Upload Images
+                    </button>
+                    <button
+                      className="button primary"
+                      disabled={!selectedVehiclePhotos.length}
+                      onClick={() => applyWatermarkToVehicleImages(selectedVehicle.id)}
+                      type="button"
+                    >
+                      Apply Watermark to All Photos
+                    </button>
+                  </div>
                   <input
                     accept="image/*"
                     className="admin-file-input"
@@ -796,18 +962,31 @@ export function AdminInventoryManager({
                   }}
                 >
                   <strong>Drop photos here</strong>
-                  <span>Or click Upload Images. JPG, PNG, WebP, HEIC up to 12 MB each.</span>
+                  <span>Or click Upload Images. JPG, PNG, WebP, HEIC up to 12 MB each. Up to 20 photos per upload.</span>
                 </div>
+                {selectedFailedWatermarkCount ? (
+                  <p className="image-warning">
+                    {selectedFailedWatermarkCount} photo
+                    {selectedFailedWatermarkCount === 1 ? "" : "s"} failed.
+                    Retry by pressing Apply Watermark to All Photos again.
+                  </p>
+                ) : null}
 
-                {(selectedVehicle.imageUrls?.length ?? 0) > 0 ? (
+                {selectedVehiclePhotos.length > 0 ? (
                   <div className="image-grid">
-                    {selectedVehicle.imageUrls?.map((imageUrl, index) => (
+                    {selectedVehiclePhotos.map((photo, index) => {
+                      const imageUrl =
+                        photoPreviewMode === "original"
+                          ? photo.originalUrl
+                          : getPublicPhotoUrl(photo);
+
+                      return (
                       <div
                         className={`image-tile ${
                           draggedImageIndex === index ? "dragging" : ""
                         }`}
                         draggable
-                        key={`${imageUrl}-${index}`}
+                        key={`${photo.id ?? photo.originalUrl}-${index}`}
                         onDragEnd={() => setDraggedImageIndex(null)}
                         onDragOver={(event) => event.preventDefault()}
                         onDragStart={() => setDraggedImageIndex(index)}
@@ -821,10 +1000,18 @@ export function AdminInventoryManager({
                         }}
                       >
                         <img alt="" src={imageUrl} />
+                        <div className="image-status-row">
+                          <span className={`photo-status ${photo.watermarkStatus ?? "idle"}`}>
+                            {photoStatusLabel(photo)}
+                          </span>
+                        </div>
                         <div className="image-drag-handle">
                           <span>{index === 0 ? "Cover" : `Photo ${index + 1}`}</span>
                           <small>Drag to reorder</small>
                         </div>
+                        {photo.watermarkError ? (
+                          <p className="image-error">{photo.watermarkError}</p>
+                        ) : null}
                         <div className="image-actions">
                           <button
                             onClick={() => setCoverImage(selectedVehicle.id, index)}
@@ -842,11 +1029,12 @@ export function AdminInventoryManager({
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="image-empty">
-                    Upload up to 20 photos. The first image becomes the public
+                    Upload up to 40 photos. The first image becomes the public
                     inventory cover.
                   </p>
                 )}
@@ -1104,6 +1292,82 @@ function AdminVehicleCard({
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function getVehiclePhotos(vehicle: Partial<EditableVehicle> | undefined | null) {
+  const photos = Array.isArray(vehicle?.vehiclePhotos)
+    ? vehicle.vehiclePhotos
+        .map((photo, index) => normalizeVehiclePhoto(photo, index))
+        .filter((photo): photo is VehiclePhoto => Boolean(photo))
+    : [];
+
+  if (photos.length) {
+    return photos;
+  }
+
+  return (vehicle?.imageUrls ?? [])
+    .filter(Boolean)
+    .map((imageUrl) => createVehiclePhoto(imageUrl));
+}
+
+function createVehiclePhoto(originalUrl: string): VehiclePhoto {
+  return {
+    id: `photo-${Date.now()}-${hashText(originalUrl)}`,
+    originalUrl,
+    watermarkStatus: "idle",
+  };
+}
+
+function normalizeVehiclePhoto(photo: VehiclePhoto, index: number): VehiclePhoto | null {
+  const originalUrl = String(photo.originalUrl ?? "").trim();
+
+  if (!originalUrl) {
+    return null;
+  }
+
+  return {
+    id: String(photo.id ?? `photo-${index}-${hashText(originalUrl)}`),
+    originalUrl,
+    watermarkError: String(photo.watermarkError ?? "") || undefined,
+    watermarkedUrl: String(photo.watermarkedUrl ?? "") || undefined,
+    watermarkStatus: normalizeWatermarkStatus(photo.watermarkStatus),
+  };
+}
+
+function normalizeWatermarkStatus(
+  value: VehiclePhoto["watermarkStatus"],
+): VehiclePhoto["watermarkStatus"] {
+  if (value === "processing" || value === "done" || value === "failed") {
+    return value;
+  }
+
+  return "idle";
+}
+
+function getPublicPhotoUrl(photo: VehiclePhoto) {
+  return photo.watermarkedUrl || photo.originalUrl;
+}
+
+function getPhotoKey(photo: Pick<VehiclePhoto, "id" | "originalUrl">) {
+  return photo.id || photo.originalUrl;
+}
+
+function photoStatusLabel(photo: VehiclePhoto) {
+  if (photo.watermarkStatus === "processing") return "Watermarking";
+  if (photo.watermarkStatus === "failed") return "Watermark failed";
+  if (photo.watermarkedUrl) return "Watermarked";
+
+  return "Original";
+}
+
+function hashText(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(36);
 }
 
 function getImageContentType(fileName: string) {

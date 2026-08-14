@@ -3,6 +3,14 @@ import usedInventory from "./used-inventory.json";
 export type VehicleType = "new" | "used";
 export type ClaimStatus = "unknown" | "no-claim" | "minor-claim" | "claim-over-5k";
 
+export type VehiclePhoto = {
+  id?: string;
+  originalUrl: string;
+  watermarkedUrl?: string;
+  watermarkStatus?: "idle" | "processing" | "done" | "failed";
+  watermarkError?: string;
+};
+
 export type Vehicle = {
   id: string;
   type: VehicleType;
@@ -24,6 +32,7 @@ export type Vehicle = {
   sourceVehicle?: string;
   isFeatured?: boolean;
   imageUrls?: string[];
+  vehiclePhotos?: VehiclePhoto[];
   details?: string;
   highlights?: string;
   deletedAt?: string;

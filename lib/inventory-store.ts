@@ -1,5 +1,5 @@
 import seedVehicles from "../app/data/used-inventory.json";
-import type { Vehicle } from "../app/data/inventory";
+import type { Vehicle, VehiclePhoto } from "../app/data/inventory";
 import { createSupabaseAdmin } from "./supabase/admin";
 
 type InventoryRow = {
@@ -140,6 +140,8 @@ export async function saveInventoryVehicles(vehicles: Vehicle[]) {
 
 function rowToVehicle(row: InventoryRow): Vehicle {
   const raw = row.raw_payload ?? {};
+  const vehiclePhotos = normalizeVehiclePhotos(raw.vehiclePhotos, row.image_urls);
+  const publicImageUrls = getPublicImageUrls(vehiclePhotos);
 
   return {
     id: row.id,
@@ -161,11 +163,8 @@ function rowToVehicle(row: InventoryRow): Vehicle {
     claimStatus: normalizeClaimStatus(row.claim_status ?? raw.claimStatus),
     sourceVehicle: String(raw.sourceVehicle ?? ""),
     isFeatured: row.is_featured ?? true,
-    imageUrls: Array.isArray(row.image_urls)
-      ? row.image_urls.map(String)
-      : Array.isArray(raw.imageUrls)
-        ? raw.imageUrls.map(String)
-        : [],
+    imageUrls: publicImageUrls,
+    vehiclePhotos,
     details: String(raw.details ?? ""),
     highlights: String(raw.highlights ?? ""),
     deletedAt: String(raw.deletedAt ?? ""),
@@ -173,6 +172,11 @@ function rowToVehicle(row: InventoryRow): Vehicle {
 }
 
 function vehicleToRow(vehicle: Vehicle) {
+  const vehiclePhotos = normalizeVehiclePhotos(
+    vehicle.vehiclePhotos,
+    vehicle.imageUrls,
+  );
+
   return {
     source: "admin",
     vehicle_type: vehicle.type,
@@ -189,9 +193,82 @@ function vehicleToRow(vehicle: Vehicle) {
     status: vehicle.status,
     claim_status: vehicle.claimStatus ?? "unknown",
     is_featured: vehicle.isFeatured !== false,
-    image_urls: vehicle.imageUrls ?? [],
-    raw_payload: vehicle,
+    image_urls: vehiclePhotos.map((photo) => photo.originalUrl),
+    raw_payload: {
+      ...vehicle,
+      imageUrls: getPublicImageUrls(vehiclePhotos),
+      vehiclePhotos,
+    },
   };
+}
+
+function normalizeVehiclePhotos(
+  value: unknown,
+  fallbackUrls: unknown,
+): VehiclePhoto[] {
+  if (Array.isArray(value)) {
+    const photos = value
+      .map((item, index) => normalizeVehiclePhoto(item, index))
+      .filter((photo): photo is VehiclePhoto => Boolean(photo?.originalUrl));
+
+    if (photos.length) {
+      return photos;
+    }
+  }
+
+  const urls = Array.isArray(fallbackUrls) ? fallbackUrls.map(String) : [];
+
+  return urls.filter(Boolean).map((url, index) => ({
+    id: `photo-${index}-${hashText(url)}`,
+    originalUrl: url,
+    watermarkStatus: "idle",
+  }));
+}
+
+function normalizeVehiclePhoto(
+  value: unknown,
+  index: number,
+): VehiclePhoto | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const photo = value as Partial<VehiclePhoto>;
+  const originalUrl = String(photo.originalUrl ?? "").trim();
+
+  if (!originalUrl) {
+    return null;
+  }
+
+  return {
+    id: String(photo.id ?? `photo-${index}-${hashText(originalUrl)}`),
+    originalUrl,
+    watermarkedUrl: String(photo.watermarkedUrl ?? "").trim() || undefined,
+    watermarkError: String(photo.watermarkError ?? "").trim() || undefined,
+    watermarkStatus: normalizeWatermarkStatus(photo.watermarkStatus),
+  };
+}
+
+function normalizeWatermarkStatus(value: unknown): VehiclePhoto["watermarkStatus"] {
+  if (value === "processing" || value === "done" || value === "failed") {
+    return value;
+  }
+
+  return "idle";
+}
+
+function getPublicImageUrls(photos: VehiclePhoto[]) {
+  return photos.map((photo) => photo.watermarkedUrl || photo.originalUrl);
+}
+
+function hashText(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(36);
 }
 
 function isDeletedRow(row: InventoryRow) {
