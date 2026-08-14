@@ -15,6 +15,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
+const watermarkRenderVersion = "2026-08-14-full-width-bars";
 
 export async function watermarkVehiclePhotos({
   photos,
@@ -32,22 +33,30 @@ export async function watermarkVehiclePhotos({
   }
 
   const results: WatermarkPhotoResult[] = [];
+  const branding = {
+    dealerName: siteContent.dealerName,
+    name: siteContent.profileName || "Dennis Liu",
+    phone: process.env.WATERMARK_PHONE ?? defaultWatermarkPhone,
+    website:
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ??
+      "dealswithdennis.com",
+  };
+  const watermarkVersion = getWatermarkVersion(branding);
 
   for (let index = 0; index < photos.length; index += 1) {
     const photo = photos[index];
 
     try {
       const source = await downloadImage(photo.originalUrl);
-      const watermarked = await applyDealsWithDennisWatermark(source, {
-        dealerName: siteContent.dealerName,
-        name: siteContent.profileName || "Dennis Liu",
-        phone: process.env.WATERMARK_PHONE ?? defaultWatermarkPhone,
-        website:
-          process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ??
-          "dealswithdennis.com",
-      });
-      const path = getWatermarkedPath(vehicleId, photo.originalUrl, index);
+      const watermarked = await applyDealsWithDennisWatermark(source, branding);
+      const path = getWatermarkedPath(
+        vehicleId,
+        photo.originalUrl,
+        index,
+        watermarkVersion,
+      );
       const { error } = await supabase.storage.from(bucketName).upload(path, watermarked, {
+        cacheControl: "31536000",
         contentType: "image/jpeg",
         upsert: true,
       });
@@ -239,10 +248,37 @@ function fitBitmapFontSize(text: string, preferredFontSize: number, maxWidth: nu
   return fontSize;
 }
 
-function getWatermarkedPath(vehicleId: string, originalUrl: string, index: number) {
-  const hash = crypto.createHash("sha256").update(originalUrl).digest("hex").slice(0, 18);
+function getWatermarkedPath(
+  vehicleId: string,
+  originalUrl: string,
+  index: number,
+  watermarkVersion: string,
+) {
+  const hash = crypto
+    .createHash("sha256")
+    .update(`${originalUrl}:${watermarkVersion}`)
+    .digest("hex")
+    .slice(0, 18);
 
-  return `${sanitizePathPart(vehicleId)}/watermarked/${index + 1}-${hash}.jpg`;
+  return `${sanitizePathPart(vehicleId)}/watermarked/${watermarkVersion}/${index + 1}-${hash}.jpg`;
+}
+
+function getWatermarkVersion(branding: {
+  dealerName: string;
+  name: string;
+  phone: string;
+  website: string;
+}) {
+  return crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        branding,
+        renderVersion: watermarkRenderVersion,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 12);
 }
 
 function sanitizePathPart(value: string) {
