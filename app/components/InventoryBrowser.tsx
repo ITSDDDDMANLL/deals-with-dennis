@@ -6,6 +6,7 @@ import { ContactForm } from "./ContactForm";
 
 type InventoryFilter = "all" | VehicleType;
 type ClaimFilter = "all" | ClaimStatus;
+type StatusFilter = "all" | Vehicle["status"];
 type InventorySort =
   | "featured"
   | "price-low"
@@ -20,6 +21,7 @@ type SelectFilterKey =
   | "model"
   | "bodyStyle"
   | "condition"
+  | "status"
   | "colour"
   | "drivetrain"
   | "fuel"
@@ -72,6 +74,7 @@ export function InventoryBrowser({
     fuel: "all",
     make: "all",
     model: "all",
+    status: "all",
     transmission: "all",
     year: "all",
   });
@@ -101,6 +104,8 @@ export function InventoryBrowser({
       const claimMatches =
         selectFilters.claim === "all" ||
         (vehicle.claimStatus ?? "unknown") === selectFilters.claim;
+      const statusMatches =
+        selectFilters.status === "all" || vehicle.status === selectFilters.status;
       const selectMatches =
         matchesSelect(selectFilters.year, String(vehicle.year)) &&
         matchesSelect(selectFilters.make, vehicle.make) &&
@@ -114,6 +119,7 @@ export function InventoryBrowser({
       return (
         typeMatches &&
         claimMatches &&
+        statusMatches &&
         priceMatches &&
         searchMatches &&
         selectMatches
@@ -193,6 +199,7 @@ export function InventoryBrowser({
       fuel: "all",
       make: "all",
       model: "all",
+      status: "all",
       transmission: "all",
       year: "all",
     });
@@ -280,6 +287,13 @@ export function InventoryBrowser({
               options={["New", "Used"]}
               onChange={(value) => updateSelectFilter("condition", value)}
               values={["new", "used"]}
+            />
+            <FilterSelect
+              label="Status"
+              value={selectFilters.status}
+              options={["Available", "Incoming", "Sold"]}
+              onChange={(value) => updateSelectFilter("status", value as StatusFilter)}
+              values={["available", "incoming", "sold"]}
             />
             <FilterSelect
               label="Colour"
