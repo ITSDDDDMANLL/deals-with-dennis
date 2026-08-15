@@ -552,6 +552,7 @@ h3 {
 }
 
 .inventory-page-shell {
+  width: min(1760px, calc(100% - 40px));
   padding: 24px 0 64px;
 }
 
