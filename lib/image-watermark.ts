@@ -17,7 +17,7 @@ export type WatermarkPhotoResult = WatermarkPhotoInput & {
 
 const bucketName = process.env.SUPABASE_VEHICLE_IMAGE_BUCKET ?? "vehicle-images";
 const defaultWatermarkPhone = "236-878-4987";
-const watermarkRenderVersion = "2026-08-14-standard-4x3-logo-watermark-v9";
+const watermarkRenderVersion = "2026-08-14-standard-4x3-bar-logo-watermark-v10";
 const watermarkAssetAspectRatio = 2400 / 260;
 const watermarkedOutputWidth = 1600;
 const watermarkedOutputHeight = 1200;
@@ -25,7 +25,7 @@ const topWatermarkOpacity = 0.6;
 const bottomWatermarkOpacity = 0.88;
 const watermarkAssetPaths = {
   bottom: path.join(process.cwd(), "public", "watermarks", "bottom.jpg"),
-  logo: path.join(process.cwd(), "public", "logo.svg"),
+  logoIcon: path.join(process.cwd(), "public", "favicon.svg"),
   top: path.join(process.cwd(), "public", "watermarks", "top.jpg"),
 };
 
@@ -120,15 +120,15 @@ async function applyDealsWithDennisWatermark(
     watermarkedOutputWidth,
     barHeight,
     topWatermarkOpacity,
+    "left",
   );
   const bottomOverlay = await createWatermarkAssetOverlay(
     watermarkAssetPaths.bottom,
     watermarkedOutputWidth,
     barHeight,
     bottomWatermarkOpacity,
+    "right",
   );
-  const logoOverlay = await createLogoWatermarkOverlay(Math.round(watermarkedOutputWidth * 0.26));
-  const logoPadding = Math.round(watermarkedOutputWidth * 0.03);
   const normalizedPhoto = await sharp(input, { failOn: "none" })
     .rotate()
     .resize(watermarkedOutputWidth, photoHeight, {
@@ -149,7 +149,6 @@ async function applyDealsWithDennisWatermark(
     .composite([
       { input: topOverlay, left: 0, top: 0 },
       { input: normalizedPhoto, left: 0, top: barHeight },
-      { input: logoOverlay, left: logoPadding, top: barHeight + logoPadding },
       { input: bottomOverlay, left: 0, top: watermarkedOutputHeight - barHeight },
     ])
     .jpeg({ mozjpeg: true, quality: 88 })
@@ -161,10 +160,10 @@ async function createWatermarkAssetOverlay(
   width: number,
   height: number,
   opacity: number,
+  logoPosition?: "left" | "right",
 ) {
   const asset = await readFile(assetPath);
-
-  return sharp(asset, { failOn: "none" })
+  const base = await sharp(asset, { failOn: "none" })
     .resize(width, height, {
       background: { b: 67, g: 83, r: 18 },
       fit: "contain",
@@ -173,27 +172,42 @@ async function createWatermarkAssetOverlay(
     .ensureAlpha(opacity)
     .png()
     .toBuffer();
+
+  if (!logoPosition) {
+    return base;
+  }
+
+  const icon = await createBarLogoIcon(Math.round(height * 0.52));
+  const iconMeta = await sharp(icon).metadata();
+  const iconWidth = iconMeta.width ?? Math.round(height * 0.52);
+  const iconHeight = iconMeta.height ?? Math.round(height * 0.52);
+  const inset = Math.round(height * 0.22);
+  const left = logoPosition === "left" ? inset : width - iconWidth - inset;
+  const top = Math.round((height - iconHeight) / 2);
+
+  return sharp(base)
+    .composite([{ input: icon, left, top }])
+    .png()
+    .toBuffer();
 }
 
-async function createLogoWatermarkOverlay(width: number) {
-  const asset = await readFile(watermarkAssetPaths.logo);
-  const height = Math.round(width * (120 / 420));
-  const radius = Math.round(height * 0.22);
-  const padding = Math.round(height * 0.1);
-  const badgeWidth = width + padding * 2;
-  const badgeHeight = height + padding * 2;
+async function createBarLogoIcon(size: number) {
+  const asset = await readFile(watermarkAssetPaths.logoIcon);
+  const padding = Math.round(size * 0.12);
+  const badgeSize = size + padding * 2;
+  const radius = Math.round(badgeSize * 0.25);
   const background = Buffer.from(`
-    <svg width="${badgeWidth}" height="${badgeHeight}" viewBox="0 0 ${badgeWidth} ${badgeHeight}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${badgeWidth}" height="${badgeHeight}" rx="${radius}" fill="rgba(245,248,246,0.82)"/>
+    <svg width="${badgeSize}" height="${badgeSize}" viewBox="0 0 ${badgeSize} ${badgeSize}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="${badgeSize}" height="${badgeSize}" rx="${radius}" fill="rgba(245,248,246,0.9)"/>
     </svg>
   `);
-  const logo = await sharp(asset, { failOn: "none" })
-    .resize(width, height, { fit: "contain" })
+  const icon = await sharp(asset, { failOn: "none" })
+    .resize(size, size, { fit: "contain" })
     .png()
     .toBuffer();
 
   return sharp(background)
-    .composite([{ input: logo, left: padding, top: padding }])
+    .composite([{ input: icon, left: padding, top: padding }])
     .png()
     .toBuffer();
 }
