@@ -33,6 +33,7 @@ const adminGroups = [
 
 export function AdminHeader({ section }: { section: string }) {
   const [isWide, setIsWide] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const storedValue = window.localStorage.getItem(ADMIN_WIDE_KEY);
@@ -61,34 +62,55 @@ export function AdminHeader({ section }: { section: string }) {
             Deals with Dennis <span>{section}</span>
           </span>
         </a>
-        <div className="admin-nav-menu">
-          {adminGroups.map((group) => (
-            <div className="admin-nav-group" key={group.label}>
-              <button className="admin-nav-trigger" type="button">
-                {group.label}
-              </button>
-              <div className="admin-nav-dropdown">
-                {group.links.map((link) => (
-                  <a href={link.href} key={link.href}>
-                    {link.label}
-                  </a>
-                ))}
+        <button
+          aria-expanded={isMobileMenuOpen}
+          className="admin-mobile-menu-button"
+          onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
+          type="button"
+        >
+          {isMobileMenuOpen ? "Close" : "Menu"}
+        </button>
+        <div
+          className={`admin-nav-panel ${isMobileMenuOpen ? "open" : ""}`}
+          id="admin-navigation-panel"
+        >
+          <div className="admin-nav-menu">
+            {adminGroups.map((group) => (
+              <div className="admin-nav-group" key={group.label}>
+                <button className="admin-nav-trigger" type="button">
+                  {group.label}
+                </button>
+                <div className="admin-nav-dropdown">
+                  {group.links.map((link) => (
+                    <a
+                      href={link.href}
+                      key={link.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-        <div className="admin-nav-actions">
-          <button
-            aria-pressed={isWide}
-            className="nav-mode-toggle"
-            onClick={toggleWideMode}
-            type="button"
-          >
-            {isWide ? "Comfort Width" : "Full Width"}
-          </button>
-          <a className="nav-cta admin-primary-cta" href="/inventory">
-            View Inventory
-          </a>
+            ))}
+          </div>
+          <div className="admin-nav-actions">
+            <button
+              aria-pressed={isWide}
+              className="nav-mode-toggle"
+              onClick={toggleWideMode}
+              type="button"
+            >
+              {isWide ? "Comfort Width" : "Full Width"}
+            </button>
+            <a
+              className="nav-cta admin-primary-cta"
+              href="/inventory"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              View Inventory
+            </a>
+          </div>
         </div>
       </nav>
     </header>

@@ -913,21 +913,7 @@ export function AdminInventoryManager({
               : "Saved to Supabase"}
           </p>
         </div>
-        <div className="admin-actions">
-          <label className="button secondary file-button">
-            Import CSV/JSON
-            <input accept=".csv,.json" onChange={importFile} type="file" />
-          </label>
-          <button className="button secondary" onClick={exportVehicles} type="button">
-            Export
-          </button>
-          <button
-            className="button secondary"
-            onClick={reloadVehicles}
-            type="button"
-          >
-            Reload from Supabase
-          </button>
+        <div className="admin-actions admin-toolbar-actions">
           <button className="button secondary" onClick={addVehicle} type="button">
             Add Vehicle
           </button>
@@ -940,16 +926,6 @@ export function AdminInventoryManager({
             {watermarking ? "Watermarking..." : "Watermark All Vehicles"}
           </button>
           <button
-            className="button secondary"
-            onClick={removeWatermarksFromAllVehicles}
-            type="button"
-          >
-            Remove All Watermarks
-          </button>
-          <button className="button secondary" onClick={logout} type="button">
-            Sign Out
-          </button>
-          <button
             className="button primary"
             disabled={saving}
             onClick={saveVehiclesOnly}
@@ -957,6 +933,35 @@ export function AdminInventoryManager({
           >
             {saving ? "Saving to Supabase..." : "Save All Vehicle Changes"}
           </button>
+          <details className="admin-more-actions">
+            <summary>More Actions</summary>
+            <div className="admin-more-actions-menu">
+              <label className="button secondary file-button">
+                Import CSV/JSON
+                <input accept=".csv,.json" onChange={importFile} type="file" />
+              </label>
+              <button className="button secondary" onClick={exportVehicles} type="button">
+                Export
+              </button>
+              <button
+                className="button secondary"
+                onClick={reloadVehicles}
+                type="button"
+              >
+                Reload from Supabase
+              </button>
+              <button
+                className="button secondary"
+                onClick={removeWatermarksFromAllVehicles}
+                type="button"
+              >
+                Remove All Watermarks
+              </button>
+              <button className="button secondary" onClick={logout} type="button">
+                Sign Out
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
