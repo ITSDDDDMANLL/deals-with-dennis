@@ -682,6 +682,16 @@ function VehicleDetailModal({
               >
                 Contact Dennis
               </button>
+              {vehicle.carfaxUrl ? (
+                <a
+                  className="button secondary vehicle-carfax-link"
+                  href={vehicle.carfaxUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  View CarFax
+                </a>
+              ) : null}
             </div>
           </div>
 

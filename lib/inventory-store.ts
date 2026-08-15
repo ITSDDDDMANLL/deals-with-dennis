@@ -165,6 +165,7 @@ function rowToVehicle(row: InventoryRow): Vehicle {
     isFeatured: row.is_featured ?? true,
     imageUrls: publicImageUrls,
     vehiclePhotos,
+    carfaxUrl: String(raw.carfaxUrl ?? ""),
     details: String(raw.details ?? ""),
     highlights: String(raw.highlights ?? ""),
     deletedAt: String(raw.deletedAt ?? ""),

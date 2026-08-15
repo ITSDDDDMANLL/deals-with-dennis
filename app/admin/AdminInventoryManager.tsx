@@ -44,6 +44,7 @@ const blankVehicle: EditableVehicle = {
   isFeatured: true,
   imageUrls: [],
   vehiclePhotos: [],
+  carfaxUrl: "",
   details: "",
   highlights: "",
 };
@@ -1453,6 +1454,20 @@ export function AdminInventoryManager({
                   }
                   placeholder="One highlight per line, such as No accidents, Local BC car, One owner"
                   rows={4}
+                />
+              </label>
+
+              <label className="editor-wide">
+                <span>CarFax URL</span>
+                <input
+                  value={selectedVehicle.carfaxUrl ?? ""}
+                  onChange={(event) =>
+                    updateVehicle(selectedVehicle.id, {
+                      carfaxUrl: event.target.value,
+                    })
+                  }
+                  placeholder="Paste the CarFax report link for this vehicle"
+                  type="url"
                 />
               </label>
 

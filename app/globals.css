@@ -883,9 +883,10 @@ h3 {
 }
 
 .claim-label.no-claim {
-  border: 1px solid rgba(15, 95, 76, 0.28);
-  background: #dff2e8;
-  color: var(--forest);
+  border: 1px solid rgba(15, 95, 76, 0.5);
+  background: var(--forest);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 95, 76, 0.16);
 }
 
 .claim-label.minor-claim {
@@ -1277,6 +1278,10 @@ h3 {
 }
 
 .vehicle-modal-price .button {
+  width: fit-content;
+}
+
+.vehicle-carfax-link {
   width: fit-content;
 }
 

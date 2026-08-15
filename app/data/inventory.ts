@@ -33,6 +33,7 @@ export type Vehicle = {
   isFeatured?: boolean;
   imageUrls?: string[];
   vehiclePhotos?: VehiclePhoto[];
+  carfaxUrl?: string;
   details?: string;
   highlights?: string;
   deletedAt?: string;
