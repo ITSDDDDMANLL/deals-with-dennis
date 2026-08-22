@@ -20,6 +20,16 @@ type EditableVehicle = Vehicle & {
   isFeatured?: boolean;
 };
 
+type AdminVehicleSort =
+  | "featured"
+  | "year-new"
+  | "year-old"
+  | "price-low"
+  | "price-high"
+  | "mileage-low"
+  | "make"
+  | "stock";
+
 const maxVehicleImages = 40;
 const maxImageSizeBytes = 12_000_000;
 
@@ -121,6 +131,7 @@ export function AdminInventoryManager({
   const [adminFeaturedFilter, setAdminFeaturedFilter] = useState("all");
   const [adminYearFilter, setAdminYearFilter] = useState("all");
   const [adminMakeFilter, setAdminMakeFilter] = useState("all");
+  const [adminSort, setAdminSort] = useState<AdminVehicleSort>("featured");
   const [deletedVehicles, setDeletedVehicles] = useState<EditableVehicle[]>([]);
   const [draggedImageIndex, setDraggedImageIndex] = useState<number | null>(null);
   const [photoPreviewMode, setPhotoPreviewMode] = useState<
@@ -165,7 +176,7 @@ export function AdminInventoryManager({
   const filteredAdminVehicles = useMemo(() => {
     const searchNeedle = adminSearch.trim().toLowerCase();
 
-    return vehicles.filter((vehicle) => {
+    const next = vehicles.filter((vehicle) => {
       const searchMatches =
         !searchNeedle ||
         [
@@ -207,10 +218,13 @@ export function AdminInventoryManager({
         makeMatches
       );
     });
+
+    return next.sort(sortAdminVehicles(adminSort));
   }, [
     adminFeaturedFilter,
     adminMakeFilter,
     adminSearch,
+    adminSort,
     adminStatusFilter,
     adminTypeFilter,
     adminYearFilter,
@@ -1254,6 +1268,24 @@ export function AdminInventoryManager({
                 <option value="no">Not featured</option>
               </select>
             </label>
+            <label>
+              <span>Sort By</span>
+              <select
+                value={adminSort}
+                onChange={(event) =>
+                  setAdminSort(event.target.value as AdminVehicleSort)
+                }
+              >
+                <option value="featured">Featured first</option>
+                <option value="year-new">Newest year</option>
+                <option value="year-old">Oldest year</option>
+                <option value="price-low">Price low to high</option>
+                <option value="price-high">Price high to low</option>
+                <option value="mileage-low">Mileage low to high</option>
+                <option value="make">Make A-Z</option>
+                <option value="stock">Stock # A-Z</option>
+              </select>
+            </label>
           </div>
 
           <div className="deleted-vehicles-panel">
@@ -1831,6 +1863,64 @@ function getWatermarkedPhotoCount(
 ) {
   return getVehiclePhotos(vehicle).filter((photo) => photo.watermarkedUrl)
     .length;
+}
+
+function sortAdminVehicles(sort: AdminVehicleSort) {
+  return (a: EditableVehicle, b: EditableVehicle) => {
+    if (sort === "price-low") {
+      return numberFromVehicleLabel(a.priceLabel) - numberFromVehicleLabel(b.priceLabel);
+    }
+
+    if (sort === "price-high") {
+      return numberFromVehicleLabel(b.priceLabel) - numberFromVehicleLabel(a.priceLabel);
+    }
+
+    if (sort === "year-new") {
+      return b.year - a.year;
+    }
+
+    if (sort === "year-old") {
+      return a.year - b.year;
+    }
+
+    if (sort === "mileage-low") {
+      return (
+        numberFromVehicleLabel(a.mileageLabel) -
+        numberFromVehicleLabel(b.mileageLabel)
+      );
+    }
+
+    if (sort === "make") {
+      return `${a.make} ${a.model} ${a.trim}`.localeCompare(
+        `${b.make} ${b.model} ${b.trim}`,
+        undefined,
+        { numeric: true },
+      );
+    }
+
+    if (sort === "stock") {
+      return String(a.stockNumber ?? "").localeCompare(
+        String(b.stockNumber ?? ""),
+        undefined,
+        { numeric: true },
+      );
+    }
+
+    const featuredDifference =
+      Number(b.isFeatured === true) - Number(a.isFeatured === true);
+
+    if (featuredDifference !== 0) {
+      return featuredDifference;
+    }
+
+    return b.year - a.year;
+  };
+}
+
+function numberFromVehicleLabel(value: string | number | undefined | null) {
+  const number = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(number) && number > 0 ? number : Number.MAX_SAFE_INTEGER;
 }
 
 function createVehiclePhoto(originalUrl: string): VehiclePhoto {
