@@ -110,6 +110,11 @@ export function AdminInventoryManager({
   const [watermarking, setWatermarking] = useState(false);
   const [downloadingWatermarkedPhotos, setDownloadingWatermarkedPhotos] =
     useState(false);
+  const [isWatermarkedDownloadPickerOpen, setIsWatermarkedDownloadPickerOpen] =
+    useState(false);
+  const [selectedDownloadVehicleIds, setSelectedDownloadVehicleIds] = useState<
+    string[]
+  >([]);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState("all");
   const [adminStatusFilter, setAdminStatusFilter] = useState("all");
@@ -561,14 +566,25 @@ export function AdminInventoryManager({
     );
   }
 
-  async function downloadAllWatermarkedPhotos() {
+  async function downloadWatermarkedPhotos(vehicleIds: string[]) {
+    const uniqueVehicleIds = Array.from(new Set(vehicleIds)).filter(Boolean);
+
+    if (!uniqueVehicleIds.length) {
+      setNotice("Choose at least one vehicle with saved watermarked photos.");
+      return;
+    }
+
     setDownloadingWatermarkedPhotos(true);
     setNotice("Preparing watermarked photos download...");
 
     let response: Response;
 
     try {
-      response = await fetch("/api/admin/images/watermarked-download");
+      response = await fetch(
+        `/api/admin/images/watermarked-download?vehicleIds=${encodeURIComponent(
+          uniqueVehicleIds.join(","),
+        )}`,
+      );
     } catch (error) {
       setNotice(
         `Watermarked photo download failed before reaching the server: ${getErrorMessage(error)}`,
@@ -602,6 +618,31 @@ export function AdminInventoryManager({
     URL.revokeObjectURL(url);
     setNotice("Watermarked photos download started.");
     setDownloadingWatermarkedPhotos(false);
+    setIsWatermarkedDownloadPickerOpen(false);
+  }
+
+  function openWatermarkedDownloadPicker() {
+    const eligibleVehicleIds = filteredAdminVehicles
+      .filter((vehicle) => getWatermarkedPhotoCount(vehicle) > 0)
+      .map((vehicle) => vehicle.id);
+
+    if (!eligibleVehicleIds.length) {
+      setNotice(
+        "No saved watermarked photos in the current vehicle list. Apply watermarks and save first.",
+      );
+      return;
+    }
+
+    setSelectedDownloadVehicleIds(eligibleVehicleIds);
+    setIsWatermarkedDownloadPickerOpen(true);
+  }
+
+  function toggleDownloadVehicle(id: string) {
+    setSelectedDownloadVehicleIds((current) =>
+      current.includes(id)
+        ? current.filter((vehicleId) => vehicleId !== id)
+        : [...current, id],
+    );
   }
 
   async function processVehicleWatermarks(
@@ -942,6 +983,15 @@ export function AdminInventoryManager({
   const selectedFailedWatermarkCount = selectedVehiclePhotos.filter(
     (photo) => photo.watermarkStatus === "failed",
   ).length;
+  const watermarkedDownloadVehicles = filteredAdminVehicles.filter(
+    (vehicle) => getWatermarkedPhotoCount(vehicle) > 0,
+  );
+  const selectedDownloadPhotoCount = watermarkedDownloadVehicles
+    .filter((vehicle) => selectedDownloadVehicleIds.includes(vehicle.id))
+    .reduce(
+      (total, vehicle) => total + getWatermarkedPhotoCount(vehicle),
+      0,
+    );
 
   return (
     <section className="admin-shell">
@@ -999,7 +1049,7 @@ export function AdminInventoryManager({
               <button
                 className="button secondary"
                 disabled={downloadingWatermarkedPhotos}
-                onClick={downloadAllWatermarkedPhotos}
+                onClick={openWatermarkedDownloadPicker}
                 type="button"
               >
                 {downloadingWatermarkedPhotos
@@ -1022,6 +1072,113 @@ export function AdminInventoryManager({
       </div>
 
       {notice ? <p className="admin-notice">{notice}</p> : null}
+
+      {isWatermarkedDownloadPickerOpen ? (
+        <div
+          aria-modal="true"
+          className="bulk-confirm-modal"
+          role="dialog"
+        >
+          <button
+            aria-label="Close watermarked photo download picker"
+            className="bulk-confirm-backdrop"
+            onClick={() => setIsWatermarkedDownloadPickerOpen(false)}
+            type="button"
+          />
+          <div className="bulk-confirm-dialog watermarked-download-dialog">
+            <div className="bulk-confirm-head">
+              <div>
+                <p className="eyebrow">Download watermarked photos</p>
+                <h3>Select vehicles</h3>
+              </div>
+              <button
+                className="button secondary"
+                onClick={() => setIsWatermarkedDownloadPickerOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+            <div className="watermarked-download-toolbar">
+              <p>
+                {selectedDownloadVehicleIds.length} vehicle
+                {selectedDownloadVehicleIds.length === 1 ? "" : "s"} selected ·{" "}
+                {selectedDownloadPhotoCount} photo
+                {selectedDownloadPhotoCount === 1 ? "" : "s"}
+              </p>
+              <div className="admin-actions">
+                <button
+                  className="button secondary"
+                  onClick={() =>
+                    setSelectedDownloadVehicleIds(
+                      watermarkedDownloadVehicles.map((vehicle) => vehicle.id),
+                    )
+                  }
+                  type="button"
+                >
+                  Select All Shown
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => setSelectedDownloadVehicleIds([])}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div className="watermarked-download-list">
+              {watermarkedDownloadVehicles.map((vehicle) => {
+                const photoCount = getWatermarkedPhotoCount(vehicle);
+                const isChecked = selectedDownloadVehicleIds.includes(vehicle.id);
+
+                return (
+                  <label className="watermarked-download-option" key={vehicle.id}>
+                    <input
+                      checked={isChecked}
+                      onChange={() => toggleDownloadVehicle(vehicle.id)}
+                      type="checkbox"
+                    />
+                    <span>
+                      <strong>
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </strong>
+                      <small>
+                        {vehicle.stockNumber || "No stock #"} · {photoCount} saved
+                        watermarked photo{photoCount === 1 ? "" : "s"}
+                      </small>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="bulk-confirm-actions">
+              <button
+                className="button secondary"
+                onClick={() => setIsWatermarkedDownloadPickerOpen(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="button primary"
+                disabled={
+                  downloadingWatermarkedPhotos ||
+                  !selectedDownloadVehicleIds.length
+                }
+                onClick={() =>
+                  void downloadWatermarkedPhotos(selectedDownloadVehicleIds)
+                }
+                type="button"
+              >
+                {downloadingWatermarkedPhotos
+                  ? "Preparing Download..."
+                  : "Download Selected"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="admin-workspace">
         <div className="admin-sidebar">
@@ -1249,6 +1406,16 @@ export function AdminInventoryManager({
                       type="button"
                     >
                       Apply Watermark to All Photos
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={!selectedWatermarkedCount}
+                      onClick={() =>
+                        void downloadWatermarkedPhotos([selectedVehicle.id])
+                      }
+                      type="button"
+                    >
+                      Download This Vehicle
                     </button>
                     <button
                       className="button secondary"
@@ -1657,6 +1824,13 @@ function getVehiclePhotos(vehicle: Partial<EditableVehicle> | undefined | null) 
   return (vehicle?.imageUrls ?? [])
     .filter(Boolean)
     .map((imageUrl) => createVehiclePhoto(imageUrl));
+}
+
+function getWatermarkedPhotoCount(
+  vehicle: Partial<EditableVehicle> | undefined | null,
+) {
+  return getVehiclePhotos(vehicle).filter((photo) => photo.watermarkedUrl)
+    .length;
 }
 
 function createVehiclePhoto(originalUrl: string): VehiclePhoto {

@@ -25,16 +25,21 @@ type WatermarkedPhotoDownload = {
 const encoder = new TextEncoder();
 const maxFileSize = 80_000_000;
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await isAuthenticated())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  const selectedVehicleIds = getSelectedVehicleIds(request.url);
   const vehicles = await getInventoryVehicles(getFeaturedVehicles(), {
     includeHidden: true,
   });
   const downloads = vehicles
-    .filter((vehicle) => !vehicle.deletedAt)
+    .filter(
+      (vehicle) =>
+        !vehicle.deletedAt &&
+        (!selectedVehicleIds.size || selectedVehicleIds.has(vehicle.id)),
+    )
     .flatMap((vehicle) =>
       (vehicle.vehiclePhotos ?? [])
         .map((photo, index) => ({
@@ -48,7 +53,9 @@ export async function GET() {
     return Response.json(
       {
         error: "No watermarked photos are ready to download.",
-        details: "Run Watermark All Vehicles first, then save vehicle changes.",
+        details: selectedVehicleIds.size
+          ? "The selected vehicle(s) do not have saved watermarked photos yet."
+          : "Run Watermark All Vehicles first, then save vehicle changes.",
       },
       { status: 404 },
     );
@@ -63,6 +70,18 @@ export async function GET() {
       "Content-Type": "application/zip",
     },
   });
+}
+
+function getSelectedVehicleIds(url: string) {
+  const params = new URL(url).searchParams;
+  const rawIds = params.get("vehicleIds") ?? "";
+
+  return new Set(
+    rawIds
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+  );
 }
 
 async function isAuthenticated() {

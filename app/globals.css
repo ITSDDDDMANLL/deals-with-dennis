@@ -1950,6 +1950,73 @@ h3 {
   width: min(1100px, 100%);
 }
 
+.watermarked-download-dialog {
+  width: min(880px, 100%);
+}
+
+.watermarked-download-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(15, 95, 76, 0.16);
+  border-radius: 8px;
+  background: #eef6f2;
+  padding: 12px;
+}
+
+.watermarked-download-toolbar p {
+  margin: 0;
+  color: var(--forest);
+  font-weight: 950;
+}
+
+.watermarked-download-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(48vh, 520px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.watermarked-download-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfbf8;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.watermarked-download-option:hover,
+.watermarked-download-option:focus-within {
+  border-color: rgba(15, 95, 76, 0.35);
+  background: #f2f8f4;
+}
+
+.watermarked-download-option input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--forest);
+}
+
+.watermarked-download-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.watermarked-download-option strong {
+  font-size: 18px;
+}
+
+.watermarked-download-option small {
+  color: var(--muted);
+  font-weight: 850;
+}
+
 .chatgpt-import-dialog {
   width: min(1120px, 100%);
 }
