@@ -108,6 +108,8 @@ export function AdminInventoryManager({
   const [hasUnsavedVehicleChanges, setHasUnsavedVehicleChanges] =
     useState(false);
   const [watermarking, setWatermarking] = useState(false);
+  const [downloadingWatermarkedPhotos, setDownloadingWatermarkedPhotos] =
+    useState(false);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminTypeFilter, setAdminTypeFilter] = useState("all");
   const [adminStatusFilter, setAdminStatusFilter] = useState("all");
@@ -559,6 +561,49 @@ export function AdminInventoryManager({
     );
   }
 
+  async function downloadAllWatermarkedPhotos() {
+    setDownloadingWatermarkedPhotos(true);
+    setNotice("Preparing watermarked photos download...");
+
+    let response: Response;
+
+    try {
+      response = await fetch("/api/admin/images/watermarked-download");
+    } catch (error) {
+      setNotice(
+        `Watermarked photo download failed before reaching the server: ${getErrorMessage(error)}`,
+      );
+      setDownloadingWatermarkedPhotos(false);
+      return;
+    }
+
+    if (!response.ok) {
+      setNotice(
+        await readErrorMessage(
+          response,
+          "Watermarked photo download failed.",
+        ),
+      );
+      setDownloadingWatermarkedPhotos(false);
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `deals-with-dennis-watermarked-${new Date()
+      .toISOString()
+      .slice(0, 10)}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice("Watermarked photos download started.");
+    setDownloadingWatermarkedPhotos(false);
+  }
+
   async function processVehicleWatermarks(
     id: string,
     currentPhotos: VehiclePhoto[],
@@ -950,6 +995,16 @@ export function AdminInventoryManager({
                 type="button"
               >
                 Reload from Supabase
+              </button>
+              <button
+                className="button secondary"
+                disabled={downloadingWatermarkedPhotos}
+                onClick={downloadAllWatermarkedPhotos}
+                type="button"
+              >
+                {downloadingWatermarkedPhotos
+                  ? "Preparing Download..."
+                  : "Download Watermarked Photos"}
               </button>
               <button
                 className="button secondary"
